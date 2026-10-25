@@ -1,0 +1,36 @@
+name: Copia de seguridad semanal
+
+# Necesita dos secretos del repositorio:
+#   SUPABASE_DB_URL  cadena de conexión "Session pooler" de Supabase
+#   BACKUP_PASSWORD  contraseña con la que se cifra la copia
+# La copia se cifra porque en un repositorio público los artefactos los puede descargar cualquiera.
+# Descifrar: gpg -d datos.sql.gz.gpg > datos.sql.gz
+on:
+  schedule:
+    - cron: '0 4 * * 1' # lunes 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente de Postgres 17
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+      - name: Volcar datos
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          test -n "$DB_URL" && test -n "$PASS" || { echo "Faltan SUPABASE_DB_URL o BACKUP_PASSWORD"; exit 1; }
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --data-only --schema=public --no-owner -f datos.sql
+          gzip datos.sql
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASS" --symmetric --cipher-algo AES256 datos.sql.gz
+          rm datos.sql.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: copia-${{ github.run_id }}
+          path: datos.sql.gz.gpg
+          retention-days: 90
