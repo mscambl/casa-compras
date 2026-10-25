@@ -21,7 +21,7 @@ const paths: Record<string, string> = {
 
 export function Icon({ name, ...rest }: { name: keyof typeof paths | string; className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...rest}>
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...rest}>
       <path d={paths[name]} />
     </svg>
   )

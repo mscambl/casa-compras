@@ -203,3 +203,4 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: v
 .card-btn { display: block; width: 100%; text-align: left; font: inherit; }
 .list > button.li { width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: none; text-align: left; font: inherit; }
 .list > button.li:first-child { border-top: 0; }
+.suggest button svg { width: 20px; height: 20px; flex: none; }
