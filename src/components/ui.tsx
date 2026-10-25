@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store'
 
 const paths: Record<string, string> = {
@@ -19,6 +20,8 @@ const paths: Record<string, string> = {
   cart: 'M3 4h2l2.4 11h11l2-8H6.2M9 20h.01M18 20h.01',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
+  barcode: 'M4 6v12M7 6v12M11 6v12M14 6v12M17 6v12M20 6v12',
+  camera: 'M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
   food: 'M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 2-3 5s1 4 3 4v9',
 }
 
@@ -30,18 +33,27 @@ export function Icon({ name, ...rest }: { name: keyof typeof paths | string; cla
   )
 }
 
+// Pila de hojas abiertas: Escape cierra solo la de arriba.
+const openSheets: object[] = []
+
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const close = useRef(onClose)
+  close.current = onClose
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const me = {}
+    openSheets.push(me)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && openSheets[openSheets.length - 1] === me && close.current()
     window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
+      openSheets.splice(openSheets.indexOf(me), 1)
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [onClose])
-  return (
+  }, [])
+  // En un portal: así ninguna barra fija ni contenedor «sticky» la tapa.
+  return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="grab" />
@@ -51,7 +63,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

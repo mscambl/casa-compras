@@ -4,6 +4,7 @@ import { addToList, getOrCreateProduct, inventoryFor, ranOut, setStock, wasted }
 import { daysBetween, shortDate, todayISO } from '../lib/format'
 import { LOCATIONS, type InventoryRow, type Location, type Product } from '../lib/types'
 import { ProductSearch } from '../components/ProductSearch'
+import { Thumb } from '../components/ProductMedia'
 import { ProductSheet } from '../components/ProductSheet'
 import { Sheet, Stepper, toast } from '../components/ui'
 
@@ -78,6 +79,7 @@ export function PantryScreen() {
               const low = p.min_qty != null && r.qty < p.min_qty
               return (
                 <div className="li" key={r.id} data-testid="stock">
+                  <Thumb product={p} />
                   <button className="li-btn" onClick={() => setEditing(p)}>
                     <div className="title ellipsis">{p.name}</div>
                     <div className="small row" style={{ gap: 6, flexWrap: 'wrap' }}>

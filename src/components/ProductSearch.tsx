@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
+import { ScanToAdd } from './Scanner'
 import { norm, rank } from '../lib/text'
 import type { Product } from '../lib/types'
 import { Icon } from './ui'
@@ -15,7 +16,9 @@ export function ProductSearch({
   sticky?: boolean
 }) {
   const products = useStore((s) => s.products)
+  const canScan = useStore((s) => s.photosReady)
   const [q, setQ] = useState('')
+  const [scan, setScan] = useState(false)
   const results = useMemo(() => rank(products, q, 6), [products, q])
   const exact = results.find((p) => norm(p.name) === norm(q))
 
@@ -43,9 +46,15 @@ export function ProductSearch({
           autoComplete="off"
           aria-label={placeholder}
           maxLength={80}
-          style={{ paddingLeft: 42 }}
+          style={{ paddingLeft: 42, paddingRight: canScan ? 50 : undefined }}
         />
+        {canScan && (
+          <button type="button" className={`scan-btn${sticky ? ' in-adder' : ''}`} aria-label="Escanear código de barras" onClick={() => setScan(true)}>
+            <Icon name="barcode" />
+          </button>
+        )}
       </form>
+      {scan && <ScanToAdd onPick={(p) => pick(p)} onClose={() => setScan(false)} />}
       {q.trim() && (
         <div className="suggest" style={sticky ? undefined : { top: 52, left: 0, right: 0 }}>
           {results.map((p) => (

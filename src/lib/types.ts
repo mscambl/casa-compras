@@ -56,6 +56,10 @@ export interface Product {
   last_price: number | null
   notes: string | null
   archived: boolean
+  /** Solo existen cuando se ha aplicado la migración de fotos. */
+  barcode?: string | null
+  photos?: string[]
+  info?: ProductInfo | null
   created_at?: string
 }
 
@@ -186,4 +190,22 @@ export const DEFAULT_PREFS: Required<Prefs> = {
   lunchServings: 1,
   dinnerServings: 2,
   weekendLunch: false,
+}
+
+export type NutrientKey = 'kcal' | 'fat' | 'saturated' | 'carbs' | 'sugars' | 'fiber' | 'proteins' | 'salt'
+
+/** Datos del envase. Hoy vienen de Open Food Facts (base de datos abierta). */
+export interface ProductInfo {
+  source: 'off'
+  fetched_on: string
+  brand?: string
+  quantity?: string
+  image_url?: string
+  ingredients?: string
+  allergens?: string[]
+  traces?: string[]
+  nutriscore?: 'a' | 'b' | 'c' | 'd' | 'e'
+  nova?: number
+  nutrition?: Partial<Record<NutrientKey, number>>
+  per?: '100 g' | '100 ml'
 }

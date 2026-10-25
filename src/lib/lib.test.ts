@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { gtinValid, normalizeBarcode, parseOff } from './off'
 import { packInput, packLabel, parseNum, pctChange, toBase, unitPrice, unitPriceLabel } from './format'
 import { guessCategoryName, norm, rank } from './text'
 import { alerts, budgetFor, forecast, metrics, monthSpend } from './stats'
@@ -130,5 +131,39 @@ describe('métricas', () => {
       { id: '3', household_id: 'h', user_id: null, kind: 'session' as const, product_id: null, data: { seconds: 300 }, created_at: '2026-10-04T10:00:00Z' },
     ]
     expect(metrics(ps, ev, '2026-10-01')).toEqual({ avgBasket: 25, unplanned: 1, duplicatesAvoided: 1, wastedValue: 1.5, wastedCount: 1, minutesInApp: 5 })
+  })
+})
+
+describe('código de barras y Open Food Facts', () => {
+  it('valida el dígito de control', () => {
+    expect(gtinValid('8480000160072')).toBe(true)
+    expect(gtinValid('8480000160073')).toBe(false)
+    expect(gtinValid('96385074')).toBe(true)
+    expect(gtinValid('12345')).toBe(false)
+    expect(normalizeBarcode('0 36000 29145 2')).toBe('0036000291452')
+  })
+  it('interpreta la ficha', () => {
+    const r = parseOff({
+      status: 1,
+      product: {
+        product_name_es: 'Leche semidesnatada', brands: 'Hacendado, Mercadona', quantity: '1 l', product_quantity: '1000', product_quantity_unit: 'ml',
+        image_front_url: 'https://images.openfoodfacts.org/x.jpg', ingredients_text_es: 'Leche semidesnatada de vaca.',
+        allergens_tags: ['en:milk'], traces_tags: ['en:milk', 'en:nuts'], nutriscore_grade: 'B', nova_group: 1,
+        nutriments: { 'energy-kcal_100g': 46, fat_100g: 1.55, 'saturated-fat_100g': '1', salt_100g: '' },
+      },
+    })!
+    expect(r.name).toBe('Leche semidesnatada')
+    expect(r.pack).toEqual({ unit: 'l', size: 1 })
+    expect(r.info.brand).toBe('Hacendado')
+    expect(r.info.allergens).toEqual(['Leche'])
+    expect(r.info.traces).toEqual(['Frutos de cáscara'])
+    expect(r.info.nutriscore).toBe('b')
+    expect(r.info.nutrition).toEqual({ kcal: 46, fat: 1.6, saturated: 1 })
+    expect(r.info.per).toBe('100 ml')
+    expect('salt' in (r.info.nutrition ?? {})).toBe(false)
+  })
+  it('sin producto devuelve null', () => {
+    expect(parseOff({ status: 0 })).toBeNull()
+    expect(parseOff({ status: 1, product: {} })).toBeNull()
   })
 })

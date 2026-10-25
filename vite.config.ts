@@ -25,7 +25,23 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { navigateFallback: 'index.html', globPatterns: ['**/*.{js,css,html,svg,png}'] },
+      workbox: {
+        navigateFallback: 'index.html',
+        globPatterns: ['**/*.{js,css,html,svg,png}'],
+        // Fotos de productos: se guardan para verlas sin conexión.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object/sign/product-photos/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'fotos', expiration: { maxEntries: 400, maxAgeSeconds: 7 * 86400 }, cacheableResponse: { statuses: [200] } },
+          },
+          {
+            urlPattern: ({ url }) => url.hostname === 'images.openfoodfacts.org',
+            handler: 'CacheFirst',
+            options: { cacheName: 'fotos-off', expiration: { maxEntries: 400, maxAgeSeconds: 30 * 86400 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+        ],
+      },
     }),
   ],
   test: { include: ['src/**/*.test.ts'] },

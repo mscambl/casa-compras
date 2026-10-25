@@ -12,6 +12,7 @@ const API = 'http://127.0.0.1:54321'
 const ANON = process.env.ANON_KEY || 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
 const SHOTS = process.argv[2]
 const results = []
+let png
 let failed = 0
 
 async function step(name, fn) {
@@ -21,6 +22,7 @@ async function step(name, fn) {
     console.log(`✓ ${name}`)
   } catch (e) {
     failed++
+    if (SHOTS) for (const [n, u] of [['mike', globalThis.mike], ['silvia', globalThis.silvia]]) if (u) await u.page.screenshot({ path: `${SHOTS}/fallo-${failed}-${n}.png` }).catch(() => {})
     results.push(`✗ ${name}\n    ${String(e.message || e).split('\n')[0]}`)
     console.log(`✗ ${name}\n    ${String(e.message || e).split('\n')[0]}`)
   }
@@ -50,6 +52,7 @@ const shot = async (page, n) => SHOTS && page.screenshot({ path: `${SHOTS}/${n}.
 const browser = await chromium.launch()
 const mike = await login(browser, 'mike@test.local')
 const silvia = await login(browser, 'silvia@test.local')
+Object.assign(globalThis, { mike, silvia })
 await mike.page.waitForSelector('text=Hola, Mike')
 await silvia.page.waitForSelector('text=Hola, Silvia')
 for (const u of [mike, silvia]) await u.page.click('nav >> text=Lista')
@@ -285,6 +288,74 @@ await step('Categorías: borrar desde «Editar»', async () => {
   await mike.page.keyboard.press('Escape')
 })
 
+await step('Escanear código: busca en Open Food Facts y lo añade a la lista', async () => {
+  png = await mike.page.screenshot({ clip: { x: 0, y: 0, width: 300, height: 200 } })
+  for (const u of [mike, silvia]) {
+    await u.ctx.route('https://world.openfoodfacts.org/**', (r) => {
+      const code = r.request().url().match(/product\/(\d+)/)[1]
+      if (code === '8410000001235') {
+        return r.fulfill({ json: { status: 1, code, product: {
+          product_name_es: 'Yogur griego natural', brands: 'Hacendado', quantity: '4 x 125 g', product_quantity: 500, product_quantity_unit: 'g',
+          image_front_url: 'https://images.openfoodfacts.org/images/yogur.jpg', ingredients_text_es: 'Leche, nata, fermentos lácticos.',
+          allergens_tags: ['en:milk'], nutriscore_grade: 'c', nova_group: 1,
+          nutriments: { 'energy-kcal_100g': 139, fat_100g: 10, 'saturated-fat_100g': 6.5, carbohydrates_100g: 4.2, sugars_100g: 4.2, proteins_100g: 3.5, salt_100g: 0.1 },
+        } } })
+      }
+      return r.fulfill({ status: 404, json: { status: 0, status_verbose: 'product not found' } })
+    })
+    await u.ctx.route('https://images.openfoodfacts.org/**', (r) => r.fulfill({ body: png, contentType: 'image/png' }))
+    await u.page.click('nav >> text=Lista')
+  }
+  await mike.page.click('button[aria-label="Escanear código de barras"]')
+  await mike.page.getByLabel('Número del código de barras').fill('8410000001235')
+  await mike.page.click('.sheet button:has-text("Buscar")')
+  await item(silvia.page, 'Yogur griego natural').waitFor()
+  await item(silvia.page, 'Yogur griego natural').locator('.thumb').waitFor()
+})
+
+await step('Ficha: Nutri-Score, alérgenos y tabla nutricional', async () => {
+  await item(mike.page, 'Yogur griego natural').locator('.li-btn').click()
+  const info = mike.page.getByTestId('pack-info')
+  await info.locator('.nutri.c').waitFor()
+  await info.locator('.tag', { hasText: 'Leche' }).waitFor()
+  await info.getByText('139 kcal').waitFor()
+  await mike.page.getByText('8410000001235').waitFor()
+  const pack = await mike.page.getByPlaceholder('Ej. 500').inputValue()
+  assert(pack === '500', 'formato ' + pack)
+  await shot(mike.page, 'ficha-envase')
+})
+
+await step('Foto propia: Mike la sube y Silvia la ve', async () => {
+  await mike.page.getByTestId('photo-input').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png })
+  await mike.page.getByText('Foto guardada').waitFor()
+  await shot(mike.page, 'ficha-foto')
+  await mike.page.keyboard.press('Escape')
+  await item(silvia.page, 'Yogur griego natural').locator('.li-btn').click()
+  await silvia.page.waitForFunction(() => {
+    const i = document.querySelector('[data-testid=gallery] button img')
+    return i && i.src.includes('/storage/v1/object/sign/product-photos/') && i.complete && i.naturalWidth > 0
+  }, null, { timeout: 8000 })
+  await silvia.page.keyboard.press('Escape')
+  await shot(silvia.page, 'lista-con-fotos')
+})
+
+await step('Código desconocido: pide el nombre y lo recuerda', async () => {
+  await mike.page.click('button[aria-label="Escanear código de barras"]')
+  await mike.page.getByLabel('Número del código de barras').fill('8420000009996')
+  await mike.page.click('.sheet button:has-text("Buscar")')
+  await mike.page.getByText('no es un código de barras válido').waitFor()
+  await mike.page.getByLabel('Número del código de barras').fill('8420000009995')
+  await mike.page.click('.sheet button:has-text("Buscar")')
+  await mike.page.getByLabel('Nombre del producto').fill('Galletas de la abuela')
+  await mike.page.click('.sheet button:has-text("Guardar")')
+  await item(mike.page, 'Galletas de la abuela').waitFor()
+  await item(silvia.page, 'Galletas de la abuela').waitFor()
+  await silvia.page.click('button[aria-label="Escanear código de barras"]')
+  await silvia.page.getByLabel('Número del código de barras').fill('8420000009995')
+  await silvia.page.click('.sheet button:has-text("Buscar")')
+  await silvia.page.getByText('ya está en la lista').waitFor()
+})
+
 await step('Una persona ajena no ve ni puede escribir datos', async () => {
   const intr = await login(browser, 'intruso@test.local')
   await intr.page.getByText('Sin acceso a un hogar').waitFor({ timeout: 8000 })
@@ -300,6 +371,11 @@ await step('Una persona ajena no ve ni puede escribir datos', async () => {
   const anon = createClient(API, ANON)
   const a = await anon.from('purchases').select('*')
   assert(!a.data?.length, 'anónimo ve compras')
+  const photo = await mike.page.evaluate(() => JSON.parse(localStorage.getItem('cc-cache-v1')).products.find((p) => p.photos?.length).photos[0])
+  const dl = await c.storage.from('product-photos').download(photo)
+  assert(dl.error, 'descarga una foto de otro hogar')
+  const up = await c.storage.from('product-photos').upload(`${hh}/x/intruso.jpg`, new Blob(['x'], { type: 'image/jpeg' }))
+  assert(up.error, 'sube una foto a otro hogar')
   await intr.ctx.close()
 })
 

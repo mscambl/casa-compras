@@ -6,6 +6,7 @@ import {
 } from '../lib/format'
 import { LOCATIONS, type Location, type PriceObservation, type Product, type ShoppingItem } from '../lib/types'
 import { ConfirmButton, Sheet, toast } from './ui'
+import { PackInfo, PhotoGallery } from './ProductMedia'
 
 const SOURCE_LABEL: Record<string, string> = { ticket: 'Ticket', manual: 'Manual', estimado: 'Estimado', oferta: 'Oferta verificada' }
 
@@ -13,6 +14,7 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
   const categories = useStore((s) => s.categories)
   const stores = useStore((s) => s.stores)
   const inv = useStore(() => inventoryFor(product.id))
+  const photosReady = useStore((s) => s.photosReady)
   const pk = packInput(product.unit, product.pack_size)
 
   const [name, setName] = useState(product.name)
@@ -92,6 +94,7 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
   return (
     <Sheet title={product.name} onClose={onClose}>
       <div className="stack">
+        {photosReady && <PhotoGallery product={product} />}
         {item && (
           <div className="card stack">
             <div className="grid2">
@@ -149,6 +152,13 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
         <label className="field"><span>Reponer cada (días)</span><input className="input" inputMode="numeric" value={restock} placeholder="Se calcula con el historial" onChange={(e) => setRestock(e.target.value)} /></label>
 
         <button className="btn primary block" onClick={save}>Guardar</button>
+
+        {photosReady && (
+          <>
+            <h2>Envase</h2>
+            <PackInfo product={product} />
+          </>
+        )}
 
         <h2>Precios</h2>
         <div className="card stack">

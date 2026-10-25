@@ -6,6 +6,7 @@ import { alerts } from '../lib/stats'
 import { todayISO } from '../lib/format'
 import type { Product, ShoppingItem } from '../lib/types'
 import { ProductSearch } from '../components/ProductSearch'
+import { Thumb } from '../components/ProductMedia'
 import { ProductSheet } from '../components/ProductSheet'
 import { PurchaseSheet } from '../components/PurchaseSheet'
 import { Icon, Sheet, Stepper, Who, toast } from '../components/ui'
@@ -109,6 +110,7 @@ export function ListScreen() {
                     <button className="check-wrap" onClick={() => toggleItem(i)} aria-label={`${i.checked ? 'Desmarcar' : 'Marcar'} ${p.name}`}>
                       <span className={`check ${i.checked ? 'on' : ''}`}>{i.checked && <Icon name="check" />}</span>
                     </button>
+                    <Thumb product={p} />
                     <button className="li-btn" onClick={() => setEditing({ p, i })}>
                       <div className="title ellipsis">{p.name}</div>
                       <div className="small muted row" style={{ gap: 6 }}>
