@@ -145,6 +145,9 @@ function upsertLocal(table: TableName, row: Record<string, unknown>) {
   } else {
     next = [...list, row]
   }
+  if (table === 'categories' || table === 'stores') {
+    next = next.slice().sort((a, b) => Number(a.sort) - Number(b.sort))
+  }
   set({ [k]: next } as Partial<State>)
   persistCache()
 }

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { getState, supabase, update, upsert, uid, useStore } from '../lib/store'
+import { getState, remove, supabase, update, upsert, uid, useStore } from '../lib/store'
 import { money, packLabel, todayISO, unitPriceLabel } from '../lib/format'
 import { rank } from '../lib/text'
 import { GROUPS, type BudgetGroup, type Product, type Store } from '../lib/types'
 import { ProductSheet } from '../components/ProductSheet'
-import { Sheet, toast } from '../components/ui'
+import { Icon, Sheet, toast } from '../components/ui'
 
 type Panel = null | 'catalogo' | 'tiendas' | 'categorias' | 'exportar' | 'cuenta'
 
@@ -77,35 +77,79 @@ function Catalog({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** Reordena moviendo un elemento y renumera de 10 en 10; solo guarda lo que cambia. */
+function move(table: 'stores' | 'categories', list: { id: string; sort: number }[], index: number, dir: -1 | 1) {
+  const to = index + dir
+  if (to < 0 || to >= list.length) return
+  const next = list.slice()
+  ;[next[index], next[to]] = [next[to], next[index]]
+  next.forEach((row, i) => {
+    const sort = (i + 1) * 10
+    if (row.sort !== sort) update(table, row.id, { sort })
+  })
+}
+
+function ReorderButtons({ name, index, total, onMove }: { name: string; index: number; total: number; onMove: (dir: -1 | 1) => void }) {
+  return (
+    <div className="row" style={{ gap: 6 }}>
+      <button className="icon-btn" aria-label={`Subir ${name}`} disabled={index === 0} onClick={() => onMove(-1)}><Icon name="up" /></button>
+      <button className="icon-btn" aria-label={`Bajar ${name}`} disabled={index === total - 1} onClick={() => onMove(1)}><Icon name="down" /></button>
+    </div>
+  )
+}
+
+function EditToggle({ editing, onToggle }: { editing: boolean; onToggle: () => void }) {
+  return (
+    <div className="row">
+      <span className="grow small muted">{editing ? 'Usa las flechas para cambiar el orden.' : 'El orden es el de la lista de la compra.'}</span>
+      <button className={`btn sm ${editing ? 'primary' : ''}`} onClick={onToggle}>{editing ? 'Listo' : 'Editar'}</button>
+    </div>
+  )
+}
+
 function Stores({ onClose }: { onClose: () => void }) {
   const stores = useStore((s) => s.stores)
   const [name, setName] = useState('')
+  const [editing, setEditing] = useState(false)
   const add = () => {
     const n = name.trim()
     if (!n) return
     if (stores.some((s) => s.name.toLowerCase() === n.toLowerCase())) return toast('Esa tienda ya existe', 'error')
-    const st: Store = { id: uid(), household_id: getState().household!.id, name: n, travel: 'coche', sort: (stores.at(-1)?.sort ?? 0) + 10, active: true }
+    const st: Store = { id: uid(), household_id: getState().household!.id, name: n, travel: 'coche', sort: Math.max(0, ...stores.map((x) => x.sort)) + 10, active: true }
     upsert('stores', st)
     setName('')
   }
   return (
     <Sheet title="Tiendas" onClose={onClose}>
       <div className="stack">
+        <EditToggle editing={editing} onToggle={() => setEditing(!editing)} />
         <div className="list">
-          {stores.map((s) => (
-            <div className="li" key={s.id}>
-              <div className="grow"><div className="title">{s.name}</div></div>
-              <select className="input" style={{ width: 120 }} value={s.travel} onChange={(e) => update('stores', s.id, { travel: e.target.value })} aria-label={`Desplazamiento a ${s.name}`}>
-                <option value="andando">Andando</option><option value="coche">Coche</option><option value="online">Online</option>
-              </select>
-              <label className="toggle small"><input type="checkbox" checked={s.active} onChange={(e) => update('stores', s.id, { active: e.target.checked })} aria-label={`${s.name} activa`} /></label>
+          {stores.map((s, i) => (
+            <div className="li" key={s.id} data-testid="store-row">
+              {editing ? (
+                <>
+                  <input className="input grow" defaultValue={s.name} maxLength={60} aria-label={`Nombre de ${s.name}`}
+                    onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.name) update('stores', s.id, { name: v }) }} />
+                  <ReorderButtons name={s.name} index={i} total={stores.length} onMove={(d) => move('stores', stores, i, d)} />
+                </>
+              ) : (
+                <>
+                  <div className="grow"><div className="title">{s.name}</div></div>
+                  <select className="input" style={{ width: 120 }} value={s.travel} onChange={(e) => update('stores', s.id, { travel: e.target.value })} aria-label={`Desplazamiento a ${s.name}`}>
+                    <option value="andando">Andando</option><option value="coche">Coche</option><option value="online">Online</option>
+                  </select>
+                  <label className="toggle small"><input type="checkbox" checked={s.active} onChange={(e) => update('stores', s.id, { active: e.target.checked })} aria-label={`${s.name} activa`} /></label>
+                </>
+              )}
             </div>
           ))}
         </div>
-        <div className="row">
-          <input className="input" placeholder="Nueva tienda" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-          <button className="btn" onClick={add}>Añadir</button>
-        </div>
+        {!editing && (
+          <div className="row">
+            <input className="input" placeholder="Nueva tienda" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            <button className="btn" onClick={add}>Añadir</button>
+          </div>
+        )}
       </div>
     </Sheet>
   )
@@ -113,30 +157,59 @@ function Stores({ onClose }: { onClose: () => void }) {
 
 function Categories({ onClose }: { onClose: () => void }) {
   const categories = useStore((s) => s.categories)
+  const products = useStore((s) => s.products)
   const [name, setName] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [armed, setArmed] = useState<string | null>(null)
+  const add = () => {
+    const n = name.trim()
+    if (!n) return
+    if (categories.some((c) => c.name.toLowerCase() === n.toLowerCase())) return toast('Esa categoría ya existe', 'error')
+    upsert('categories', { id: uid(), household_id: getState().household!.id, name: n, grp: 'otros', sort: Math.max(0, ...categories.map((c) => c.sort)) + 10 })
+    setName('')
+    toast('Categoría añadida al final. Toca «Editar» para moverla.')
+  }
   return (
     <Sheet title="Categorías" onClose={onClose}>
       <div className="stack">
+        <EditToggle editing={editing} onToggle={() => { setEditing(!editing); setArmed(null) }} />
         <div className="list">
-          {categories.map((c) => (
-            <div className="li" key={c.id}>
-              <span className="grow">{c.name}</span>
-              <select className="input" style={{ width: 170 }} value={c.grp} onChange={(e) => update('categories', c.id, { grp: e.target.value as BudgetGroup })} aria-label={`Grupo de ${c.name}`}>
-                {GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
-              </select>
+          {categories.map((c, i) => {
+            const used = products.filter((p) => p.category_id === c.id).length
+            return (
+              <div className="li" key={c.id} data-testid="category-row">
+                {editing ? (
+                  <>
+                    <button className="icon-btn danger-btn" aria-label={`Borrar ${c.name}`} onClick={() => setArmed(armed === c.id ? null : c.id)}>−</button>
+                    <input className="input grow" defaultValue={c.name} maxLength={60} aria-label={`Nombre de ${c.name}`}
+                      onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== c.name) update('categories', c.id, { name: v }) }} />
+                    {armed === c.id ? (
+                      <button className="btn sm danger" onClick={() => { remove('categories', c.id); setArmed(null); toast(used ? `${c.name} borrada; ${used} productos quedan sin categoría` : `${c.name} borrada`) }}>Borrar</button>
+                    ) : (
+                      <ReorderButtons name={c.name} index={i} total={categories.length} onMove={(d) => move('categories', categories, i, d)} />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="grow">{c.name}</span>
+                    <select className="input" style={{ width: 170 }} value={c.grp} onChange={(e) => update('categories', c.id, { grp: e.target.value as BudgetGroup })} aria-label={`Grupo de ${c.name}`}>
+                      {GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+                    </select>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {!editing && (
+          <>
+            <div className="row">
+              <input className="input" placeholder="Nueva categoría" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+              <button className="btn" onClick={add}>Añadir</button>
             </div>
-          ))}
-        </div>
-        <div className="row">
-          <input className="input" placeholder="Nueva categoría" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-          <button className="btn" onClick={() => {
-            const n = name.trim()
-            if (!n) return
-            upsert('categories', { id: uid(), household_id: getState().household!.id, name: n, grp: 'otros', sort: (categories.at(-1)?.sort ?? 0) + 5 })
-            setName('')
-          }}>Añadir</button>
-        </div>
-        <p className="small muted">Cambiar el grupo afecta a las compras futuras; las ya registradas mantienen su grupo.</p>
+            <p className="small muted">Cambiar el grupo afecta a las compras futuras; las ya registradas mantienen su grupo.</p>
+          </>
+        )}
       </div>
     </Sheet>
   )

@@ -13,6 +13,8 @@ const paths: Record<string, string> = {
   x: 'M6 6l12 12M18 6L6 18',
   star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   chevL: 'M15 6l-6 6 6 6',
+  up: 'M6 15l6-6 6 6',
+  down: 'M6 9l6 6 6-6',
   chevR: 'M9 6l6 6-6 6',
   cart: 'M3 4h2l2.4 11h11l2-8H6.2M9 20h.01M18 20h.01',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',

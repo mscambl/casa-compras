@@ -204,3 +204,5 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: v
 .list > button.li { width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: none; text-align: left; font: inherit; }
 .list > button.li:first-child { border-top: 0; }
 .suggest button svg { width: 20px; height: 20px; flex: none; }
+.icon-btn.danger-btn { background: var(--danger); border-color: var(--danger); color: #fff; font-size: 24px; font-weight: 700; line-height: 1; width: 32px; height: 32px; border-radius: 50%; padding: 0; }
+.icon-btn:disabled { opacity: .35; }
