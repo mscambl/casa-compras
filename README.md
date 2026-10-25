@@ -14,6 +14,7 @@ App web instalable (PWA) para gestionar entre dos personas la lista de la compra
 | Inicio | Pendientes de la lista, gasto del mes frente a presupuesto, previsión y avisos de caducidad o reposición |
 | Lista | Añadir con autocompletado, aviso de duplicados, cantidades, marcar, agrupar por categoría o tienda, habituales con un toque, cerrar compra |
 | En casa | Inventario por ubicación, caducidades, mínimos, «Se acabó» y desperdicio |
+| Menú | Comidas L-V y cenas de la semana, propuesta automática que aprovecha lo que hay y lo que caduca, recetario editable y «Lo que falta» para la lista |
 | Gastos | Gasto por grupo, tienda y producto, presupuesto, compras registradas, indicadores |
 | Más | Catálogo con precio por kg/l/ud e historial de precios, tiendas, categorías, exportación CSV/JSON, cuenta |
 
@@ -22,7 +23,7 @@ Funciona sin conexión: los cambios se guardan en el móvil y se envían al recu
 ## Puesta en marcha (una vez)
 
 1. Crear un proyecto en [supabase.com](https://supabase.com) (región UE).
-2. En **SQL Editor**, pegar y ejecutar `supabase/migrations/20261025000000_init.sql`.
+2. En **SQL Editor**, pegar y ejecutar en orden los archivos de `supabase/migrations/`.
 3. Editar los emails de `supabase/setup-hogar.sql` y ejecutarlo.
 4. En **Authentication → Sign In / Providers**, desactivar «Allow new users to sign up».
 5. En **Authentication → Users → Add user**, crear los dos usuarios con contraseña y «Auto Confirm User».

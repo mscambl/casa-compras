@@ -20,7 +20,7 @@ export const LOCATIONS: { id: Location; label: string }[] = [
   { id: 'otro', label: 'Otro' },
 ]
 
-export interface Household { id: string; name: string }
+export interface Household { id: string; name: string; prefs?: Prefs }
 export interface Member { household_id: string; user_id: string; display_name: string; email: string | null }
 
 export interface Store {
@@ -137,4 +137,53 @@ export interface AppEvent {
   product_id: string | null
   data: Record<string, unknown>
   created_at: string
+}
+
+export type MealSlot = 'comida' | 'cena'
+export type Equipment = 'ninguno' | 'microondas' | 'fuego' | 'horno'
+
+export interface Ingredient { name: string; amount: number; unit: 'g' | 'kg' | 'ml' | 'l' | 'ud'; basic: boolean }
+
+export interface Recipe {
+  id: string
+  household_id: string
+  name: string
+  slot: MealSlot | 'ambas'
+  prep_min: number
+  equipment: Equipment
+  tags: string[]
+  ingredients: Ingredient[]
+  steps: string | null
+  active: boolean
+}
+
+export interface PlanEntry {
+  id: string
+  household_id: string
+  day: string
+  slot: MealSlot
+  recipe_id: string | null
+  servings: number
+  status: 'plan' | 'fuera' | 'sobras'
+  note: string | null
+  updated_by?: string | null
+}
+
+export interface Prefs {
+  excluded?: string[]
+  maxPrep?: number
+  equipment?: Equipment[]
+  /** Raciones por defecto de la comida entre semana (Mike = 1). */
+  lunchServings?: number
+  dinnerServings?: number
+  weekendLunch?: boolean
+}
+
+export const DEFAULT_PREFS: Required<Prefs> = {
+  excluded: [],
+  maxPrep: 30,
+  equipment: ['ninguno', 'microondas', 'fuego', 'horno'],
+  lunchServings: 1,
+  dinnerServings: 2,
+  weekendLunch: false,
 }

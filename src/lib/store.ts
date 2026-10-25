@@ -1,9 +1,9 @@
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
 import { useSyncExternalStore } from 'react'
 import type {
-  AppEvent, Budget, Category, Household, InventoryRow, Member, Product, Purchase, PurchaseLine, ShoppingItem, Store,
+  AppEvent, Budget, Category, Household, InventoryRow, Member, PlanEntry, Product, Purchase, PurchaseLine, Recipe, ShoppingItem, Store,
 } from './types'
-import { addMonths, monthKey, todayISO } from './format'
+import { addDaysISO, addMonths, monthKey, todayISO } from './format'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -22,6 +22,8 @@ export interface Data {
   budgets: Budget[]
   purchases: PurchaseWithLines[]
   events: AppEvent[]
+  recipes: Recipe[]
+  plan: PlanEntry[]
 }
 
 export interface State extends Data {
@@ -31,9 +33,12 @@ export interface State extends Data {
   pending: number
   lastSync: string | null
   error: string | null
+  /** false si la base de datos aún no tiene las tablas de menús. */
+  menusReady: boolean
 }
 
 type TableName = 'products' | 'categories' | 'stores' | 'shopping_items' | 'inventory' | 'budgets' | 'events' | 'members' | 'households'
+  | 'recipes' | 'meal_plan'
 
 type Op =
   | { opId: string; kind: 'upsert'; table: TableName; row: Record<string, unknown> }
@@ -46,6 +51,7 @@ const QUEUE_KEY = 'cc-queue-v1'
 
 const empty: Data = {
   household: null, members: [], categories: [], stores: [], products: [], items: [], inventory: [], budgets: [], purchases: [], events: [],
+  recipes: [], plan: [],
 }
 
 function safeGet<T>(k: string, fallback: T): T {
@@ -74,6 +80,7 @@ let state: State = {
   pending: queue.length,
   lastSync: null,
   error: null,
+  menusReady: true,
 }
 
 const listeners = new Set<() => void>()
@@ -88,8 +95,8 @@ let cacheTimer: number | undefined
 function persistCache() {
   window.clearTimeout(cacheTimer)
   cacheTimer = window.setTimeout(() => {
-    const { household, members, categories, stores, products, items, inventory, budgets, purchases, events } = state
-    safeSet(CACHE_KEY, { household, members, categories, stores, products, items, inventory, budgets, purchases, events })
+    const { household, members, categories, stores, products, items, inventory, budgets, purchases, events, recipes, plan } = state
+    safeSet(CACHE_KEY, { household, members, categories, stores, products, items, inventory, budgets, purchases, events, recipes, plan })
   }, 300)
 }
 
@@ -115,7 +122,7 @@ const keyOf = (table: TableName, row: Record<string, unknown>) =>
 
 const stateKey: Partial<Record<TableName, keyof Data>> = {
   products: 'products', categories: 'categories', stores: 'stores', shopping_items: 'items', inventory: 'inventory',
-  budgets: 'budgets', events: 'events', members: 'members',
+  budgets: 'budgets', events: 'events', members: 'members', recipes: 'recipes', meal_plan: 'plan',
 }
 
 function upsertLocal(table: TableName, row: Record<string, unknown>) {
@@ -283,7 +290,8 @@ export async function refresh() {
   }
   const hid = mem[0].household_id as string
   const since = addMonths(monthKey(todayISO()), -12)
-  const [hh, members, categories, stores, products, items, inventory, budgets, purchases, events] = await Promise.all([
+  const planFrom = addDaysISO(todayISO(), -21)
+  const [hh, members, categories, stores, products, items, inventory, budgets, purchases, events, recipes, plan] = await Promise.all([
     supabase.from('households').select('*').eq('id', hid).single(),
     supabase.from('members').select('*').eq('household_id', hid),
     supabase.from('categories').select('*').eq('household_id', hid).order('sort'),
@@ -294,6 +302,8 @@ export async function refresh() {
     supabase.from('budgets').select('*').eq('household_id', hid),
     supabase.from('purchases').select('*, purchase_lines(*)').eq('household_id', hid).gte('purchased_on', since).order('purchased_on', { ascending: false }),
     supabase.from('events').select('*').eq('household_id', hid).gte('created_at', since).neq('kind', 'purchase_closed'),
+    supabase.from('recipes').select('*').eq('household_id', hid).order('name'),
+    supabase.from('meal_plan').select('*').eq('household_id', hid).gte('day', planFrom),
   ])
   const firstErr = [hh, members, categories, stores, products, items, inventory, budgets, purchases, events].find((r) => r.error)?.error
   if (firstErr) {
@@ -311,10 +321,14 @@ export async function refresh() {
     budgets: (budgets.data as Budget[]).map(numify),
     purchases: (purchases.data as PurchaseWithLines[]).map((p) => ({ ...numify(p), purchase_lines: p.purchase_lines.map(numify) })),
     events: events.data as AppEvent[],
+    // Si aún no se ha aplicado la migración de menús, seguimos funcionando sin ellos.
+    recipes: recipes.error ? [] : (recipes.data as Recipe[]),
+    plan: plan.error ? [] : (plan.data as PlanEntry[]).map(numify),
   }
+
   // Reaplicamos lo que aún está pendiente de enviar para no "parpadear".
   const hadHousehold = state.household?.id === hid
-  set({ ...fresh, loaded: true, error: null, online: true, lastSync: new Date().toISOString() })
+  set({ ...fresh, loaded: true, error: null, online: true, lastSync: new Date().toISOString(), menusReady: !recipes.error })
   if (hadHousehold) {
     for (const op of queue) {
       if (op.kind === 'upsert') upsertLocal(op.table, op.row)
@@ -332,7 +346,7 @@ export async function refresh() {
 }
 
 // Postgres devuelve numeric como texto: lo convertimos a número.
-const NUMERIC = new Set(['qty', 'est_price', 'pack_size', 'min_qty', 'last_price', 'total_paid', 'line_total', 'discount', 'amount', 'price', 'unit_price'])
+const NUMERIC = new Set(['qty', 'est_price', 'pack_size', 'min_qty', 'last_price', 'total_paid', 'line_total', 'discount', 'amount', 'price', 'unit_price', 'servings'])
 function numify<T>(row: T): T {
   const r = { ...(row as Record<string, unknown>) }
   for (const k of Object.keys(r)) if (NUMERIC.has(k) && typeof r[k] === 'string') r[k] = Number(r[k])
@@ -346,7 +360,7 @@ function subscribe(hid: string) {
   if (channel) void supabase.removeChannel(channel)
   channelHid = hid
   const ch = supabase.channel(`hh-${hid}`)
-  const tables: TableName[] = ['shopping_items', 'inventory', 'products', 'stores', 'categories', 'budgets', 'members']
+  const tables: TableName[] = ['shopping_items', 'inventory', 'products', 'stores', 'categories', 'budgets', 'members', 'recipes', 'meal_plan']
   for (const t of tables) {
     ch.on('postgres_changes', { event: '*', schema: 'public', table: t, filter: `household_id=eq.${hid}` }, (p) => {
       if (p.eventType === 'DELETE') {
@@ -358,6 +372,9 @@ function subscribe(hid: string) {
       }
     })
   }
+  ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'households', filter: `id=eq.${hid}` }, (p) => {
+    upsertLocal('households', p.new as Record<string, unknown>)
+  })
   ch.on('postgres_changes', { event: '*', schema: 'public', table: 'purchases', filter: `household_id=eq.${hid}` }, () => {
     void reloadPurchases()
   })

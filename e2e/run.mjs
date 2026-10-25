@@ -201,6 +201,58 @@ await step('Exportar CSV de compras', async () => {
   await mike.page.keyboard.press('Escape')
 })
 
+await step('Menú: proponer la semana siguiente y verlo en el otro móvil', async () => {
+  for (const u of [mike, silvia]) {
+    await u.page.click('nav >> text=Menú')
+    await u.page.click('button[aria-label="Semana siguiente"]')
+  }
+  await mike.page.waitForFunction(() => window.__cc.getState().recipes.length >= 20, null, { timeout: 10000 })
+  await mike.page.click('button:has-text("Proponer semana")')
+  await mike.page.getByText('12 comidas propuestas').waitFor()
+  await mike.page.waitForTimeout(500)
+  assert(!(await mike.page.getByText('Elegir…').count()), 'quedan huecos sin elegir')
+  await silvia.page.waitForFunction(() => !document.body.innerText.includes('Elegir…'), null, { timeout: 10000 })
+  await shot(mike.page, 'menu')
+})
+
+await step('Menú: añadir a Silvia a una comida y cambiar un plato', async () => {
+  const slot = mike.page.locator('[data-testid$="-comida"]').first()
+  await slot.click()
+  await mike.page.click('.sheet .chip:has-text("Mike y Silvia")')
+  await mike.page.keyboard.press('Escape')
+  await slot.getByText('Mike y Silvia').waitFor()
+  const cena = mike.page.locator('[data-testid$="-cena"]').nth(2)
+  await cena.click()
+  await mike.page.click('.sheet .chip:has-text("Fuera de casa")')
+  await cena.getByText('Fuera de casa').waitFor()
+  await silvia.page.locator('[data-testid$="-cena"]').nth(2).getByText('Fuera de casa').waitFor({ timeout: 8000 })
+})
+
+await step('Menú: «Lo que falta» añade a la lista lo necesario', async () => {
+  await mike.page.click('button:has-text("Lo que falta")')
+  await mike.page.locator('.sheet .li').first().waitFor()
+  await shot(mike.page, 'lo-que-falta')
+  const btn = mike.page.locator('.sheet button:has-text("a la lista")')
+  const label = await btn.textContent()
+  const n = Number(label.match(/\d+/)[0])
+  assert(n > 3, `solo ${n} ingredientes`)
+  await btn.click()
+  await mike.page.getByText('añadidos a la lista').waitFor()
+  await silvia.page.click('nav >> text=Lista')
+  await silvia.page.waitForFunction((k) => document.querySelectorAll('[data-testid=item]').length >= k, n, { timeout: 10000 })
+})
+
+await step('Menú: excluir un ingrediente lo quita de las propuestas', async () => {
+  await mike.page.click('button[aria-label="Preferencias"]')
+  await mike.page.getByPlaceholder('Ej. setas, marisco').fill('huevo')
+  await mike.page.click('.sheet button:has-text("Guardar")')
+  const slot = mike.page.locator('[data-testid$="-cena"]').first()
+  await slot.click()
+  const names = await mike.page.locator('.sheet .li .title').allTextContents()
+  assert(names.length > 0 && !names.some((t) => /tortilla francesa|revuelto|huevos al plato/i.test(t)), names.join(', '))
+  await mike.page.keyboard.press('Escape')
+})
+
 await step('Una persona ajena no ve ni puede escribir datos', async () => {
   const intr = await login(browser, 'intruso@test.local')
   await intr.page.getByText('Sin acceso a un hogar').waitFor({ timeout: 8000 })

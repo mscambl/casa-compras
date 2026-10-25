@@ -60,13 +60,13 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: v
 /* Navegación inferior */
 .nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: var(--surface); border-top: 1px solid var(--line);
 }
 .nav button {
   border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  font-size: 12px; color: var(--muted);
+  font-size: 11px; color: var(--muted);
 }
 .nav button svg { width: 24px; height: 24px; }
 .nav button[aria-current='page'] { color: var(--accent); font-weight: 600; }

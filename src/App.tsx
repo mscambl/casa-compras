@@ -6,12 +6,14 @@ import { ListScreen } from './screens/List'
 import { PantryScreen } from './screens/Pantry'
 import { SpendingScreen } from './screens/Spending'
 import { MoreScreen } from './screens/More'
+import { MenuScreen } from './screens/Menu'
 import { Icon, Toasts, toast } from './components/ui'
 
-export type Tab = 'inicio' | 'lista' | 'casa' | 'gastos' | 'mas'
+export type Tab = 'inicio' | 'lista' | 'menu' | 'casa' | 'gastos' | 'mas'
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: 'home' },
   { id: 'lista', label: 'Lista', icon: 'list' },
+  { id: 'menu', label: 'Menú', icon: 'food' },
   { id: 'casa', label: 'En casa', icon: 'box' },
   { id: 'gastos', label: 'Gastos', icon: 'euro' },
   { id: 'mas', label: 'Más', icon: 'more' },
@@ -100,6 +102,7 @@ function Main() {
     <div className="app">
       {tab === 'inicio' && <HomeScreen go={go} />}
       {tab === 'lista' && <ListScreen />}
+      {tab === 'menu' && <MenuScreen />}
       {tab === 'casa' && <PantryScreen />}
       {tab === 'gastos' && <SpendingScreen />}
       {tab === 'mas' && <MoreScreen onSignOut={signOut} />}

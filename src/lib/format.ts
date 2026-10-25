@@ -92,3 +92,7 @@ export function shortDate(iso: string) {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 }
+export function addDaysISO(iso: string, n: number) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return isoDate(new Date(y, m - 1, d + n))
+}

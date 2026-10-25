@@ -17,6 +17,7 @@ const paths: Record<string, string> = {
   cart: 'M3 4h2l2.4 11h11l2-8H6.2M9 20h.01M18 20h.01',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
+  food: 'M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 2-3 5s1 4 3 4v9',
 }
 
 export function Icon({ name, ...rest }: { name: keyof typeof paths | string; className?: string }) {
