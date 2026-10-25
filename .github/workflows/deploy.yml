@@ -1,8 +1,8 @@
 name: Publicar en GitHub Pages
 
-# Solo para repositorio público (Pages gratis). Con Vercel no hace falta.
-# Para activarlo en cada push, añade:  push: { branches: [main] }
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +28,8 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-          # Valores públicos por diseño: la seguridad la dan las reglas de acceso (RLS).
-          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          # La URL y la clave pública de Supabase están en .env.production.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

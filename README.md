@@ -27,8 +27,8 @@ Funciona sin conexión: los cambios se guardan en el móvil y se envían al recu
 4. En **Authentication → Sign In / Providers**, desactivar «Allow new users to sign up».
 5. En **Authentication → Users → Add user**, crear los dos usuarios con contraseña y «Auto Confirm User».
 6. En **Authentication → URL Configuration**, poner como Site URL la dirección de GitHub Pages.
-7. En GitHub, **Settings → Secrets and variables → Actions → Variables**: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (clave pública).
-8. En **Settings → Pages**, origen «GitHub Actions». Cada push a `main` publica la app.
+7. Poner la URL del proyecto y la clave pública en `.env.production` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). Son públicas por diseño: la seguridad la dan las reglas de acceso.
+8. Repositorio público y, en **Settings → Pages**, origen «GitHub Actions». Cada push a `main` publica la app.
 
 Copia semanal cifrada (opcional): secretos `SUPABASE_DB_URL` y `BACKUP_PASSWORD`; ver `.github/workflows/backup.yml`.
 
