@@ -1,8 +1,8 @@
 name: Publicar en GitHub Pages
 
+# Solo para repositorio público (Pages gratis). Con Vercel no hace falta.
+# Para activarlo en cada push, añade:  push: { branches: [main] }
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
