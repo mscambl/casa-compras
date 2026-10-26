@@ -181,7 +181,7 @@ export function weekNeeds(
         continue
       }
       const cur = agg.get(key) ?? { key, name: product?.name ?? i.name, product, need: 0, dim: dimOf(i.unit), have: null, buyPacks: 0, inList: !!product && inList.has(product.id), uses: [] }
-      cur.need += toBaseAmount(i) * e.servings
+      cur.need += (toBaseAmount(i) * e.servings) / Math.max(1, r.yields ?? 1)
       if (!cur.uses.includes(r.name)) cur.uses.push(r.name)
       agg.set(key, cur)
     }

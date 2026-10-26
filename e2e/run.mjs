@@ -290,6 +290,17 @@ await step('Menú: añadir las recetas ligeras y verlas en el otro móvil', asyn
   await silvia.page.keyboard.press('Escape')
 })
 
+await step('Recetas: cantidades para 2 personas', async () => {
+  await mike.page.getByRole('button', { name: 'Recetas', exact: true }).click()
+  await mike.page.click('.sheet button:has-text("Nueva")')
+  await mike.page.locator('.sheet label:has-text("Nombre") input').fill('Tortilla de patatas')
+  await mike.page.getByLabel('Cantidades para').selectOption('2')
+  await mike.page.locator('.sheet textarea').first().fill('5 ud Huevos\n600 g Patatas\n* Aceite de oliva')
+  await mike.page.click('.sheet button:has-text("Guardar")')
+  await mike.page.locator('.sheet .li', { hasText: 'Tortilla de patatas' }).getByText('para 2').waitFor()
+  await mike.page.keyboard.press('Escape')
+})
+
 await step('Categorías: añadir, subir con «Editar» y verlo en el otro móvil', async () => {
   await mike.page.click('nav >> text=Más')
   await mike.page.click('text=Categorías')

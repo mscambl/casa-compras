@@ -159,6 +159,8 @@ export interface Recipe {
   ingredients: Ingredient[]
   steps: string | null
   active: boolean
+  /** Para cuántas personas son las cantidades (solo existe con la migración de raciones). */
+  yields?: number
 }
 
 export interface PlanEntry {

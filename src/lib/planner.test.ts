@@ -145,3 +145,15 @@ describe('recetas ligeras', () => {
     expect(light(true)).toBeGreaterThanOrEqual(10)
   })
 })
+
+describe('cantidades para varias personas', () => {
+  it('divide por las personas de la receta y multiplica por los comensales', () => {
+    const tortilla: Recipe = { id: 'tp', household_id: 'h', name: 'Tortilla de patatas', slot: 'cena', prep_min: 30, equipment: 'fuego', tags: [], steps: null, active: true, yields: 2,
+      ingredients: [parseIngredient('5 ud Huevos')!, parseIngredient('600 g Patatas')!] }
+    const one = weekNeeds([entry('2026-10-26', 'cena', tortilla, 1)], [tortilla], [], [], []).needs
+    const two = weekNeeds([entry('2026-10-26', 'cena', tortilla, 2)], [tortilla], [], [], []).needs
+    expect(one.find((n) => n.name === 'Huevos')!.need).toBe(2.5)
+    expect(two.find((n) => n.name === 'Huevos')!.need).toBe(5)
+    expect(two.find((n) => n.name === 'Patatas')!.need).toBeCloseTo(0.6)
+  })
+})

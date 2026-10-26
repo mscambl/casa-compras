@@ -37,6 +37,8 @@ export interface State extends Data {
   menusReady: boolean
   /** false si la base de datos aún no tiene las columnas de fotos y código de barras. */
   photosReady: boolean
+  /** false si la base de datos aún no tiene recipes.yields. */
+  yieldsReady: boolean
 }
 
 type TableName = 'products' | 'categories' | 'stores' | 'shopping_items' | 'inventory' | 'budgets' | 'events' | 'members' | 'households'
@@ -86,6 +88,7 @@ let state: State = {
   menusReady: true,
   // Sin conexión al abrir: lo deducimos de la caché.
   photosReady: (cached.products ?? []).some((p) => 'photos' in p),
+  yieldsReady: (cached.recipes ?? []).some((r) => 'yields' in r),
 }
 
 const listeners = new Set<() => void>()
@@ -299,7 +302,7 @@ export async function refresh() {
   const hid = mem[0].household_id as string
   const since = addMonths(monthKey(todayISO()), -12)
   const planFrom = addDaysISO(todayISO(), -21)
-  const [hh, members, categories, stores, products, items, inventory, budgets, purchases, events, recipes, plan, photosProbe] = await Promise.all([
+  const [hh, members, categories, stores, products, items, inventory, budgets, purchases, events, recipes, plan, photosProbe, yieldsProbe] = await Promise.all([
     supabase.from('households').select('*').eq('id', hid).single(),
     supabase.from('members').select('*').eq('household_id', hid),
     supabase.from('categories').select('*').eq('household_id', hid).order('sort'),
@@ -313,6 +316,7 @@ export async function refresh() {
     supabase.from('recipes').select('*').eq('household_id', hid).order('name'),
     supabase.from('meal_plan').select('*').eq('household_id', hid).gte('day', planFrom),
     supabase.from('products').select('barcode').eq('household_id', hid).limit(1),
+    supabase.from('recipes').select('yields').eq('household_id', hid).limit(1),
   ])
   const firstErr = [hh, members, categories, stores, products, items, inventory, budgets, purchases, events].find((r) => r.error)?.error
   if (firstErr) {
@@ -337,7 +341,7 @@ export async function refresh() {
 
   // Reaplicamos lo que aún está pendiente de enviar para no "parpadear".
   const hadHousehold = state.household?.id === hid
-  set({ ...fresh, loaded: true, error: null, online: true, lastSync: new Date().toISOString(), menusReady: !recipes.error, photosReady: !photosProbe.error })
+  set({ ...fresh, loaded: true, error: null, online: true, lastSync: new Date().toISOString(), menusReady: !recipes.error, photosReady: !photosProbe.error, yieldsReady: !yieldsProbe.error })
   if (hadHousehold) {
     for (const op of queue) {
       if (op.kind === 'upsert') upsertLocal(op.table, op.row)

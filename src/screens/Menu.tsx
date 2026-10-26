@@ -329,7 +329,7 @@ function RecipesSheet({ onClose }: { onClose: () => void }) {
             <button className="li" key={r.id} onClick={() => setEditing(r)}>
               <div className="grow">
                 <div className={`title ${r.active ? '' : 'muted'}`}>{r.name}{r.active ? '' : ' (oculta)'}</div>
-                <div className="small muted">{r.slot === 'ambas' ? 'Comida o cena' : r.slot === 'comida' ? 'Comida' : 'Cena'} · {r.prep_min} min · {EQUIP_LABEL[r.equipment]}</div>
+                <div className="small muted">{r.slot === 'ambas' ? 'Comida o cena' : r.slot === 'comida' ? 'Comida' : 'Cena'} · {r.prep_min} min · {EQUIP_LABEL[r.equipment]}{(r.yields ?? 1) > 1 ? ` · para ${r.yields}` : ''}</div>
               </div>
             </button>
           ))}
@@ -347,6 +347,8 @@ function RecipeEdit({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
   const [ings, setIngs] = useState((recipe?.ingredients ?? []).map(ingredientLabel).join('\n'))
   const [steps, setSteps] = useState(recipe?.steps ?? '')
   const [tags, setTags] = useState((recipe?.tags ?? []).join(', '))
+  const yieldsReady = useStore((s) => s.yieldsReady)
+  const [yields, setYields] = useState(String(recipe?.yields ?? 1))
 
   const save = () => {
     if (!name.trim()) return toast('Pon un nombre', 'error')
@@ -363,6 +365,7 @@ function RecipeEdit({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
       ingredients,
       steps: steps.trim() || null,
       active: recipe?.active ?? true,
+      ...(yieldsReady ? { yields: Math.max(1, Math.min(8, Number(yields) || 1)) } : {}),
     }
     upsert('recipes', row)
     toast('Receta guardada')
@@ -386,7 +389,14 @@ function RecipeEdit({ recipe, onClose }: { recipe: Recipe | null; onClose: () =>
             {(Object.keys(EQUIP_LABEL) as Equipment[]).map((k) => <option key={k} value={k}>{EQUIP_LABEL[k]}</option>)}
           </select>
         </label>
-        <label className="field"><span>Ingredientes por ración, uno por línea (ej. «150 g Pechuga de pollo», «2 ud Huevos», «* Aceite» para básicos)</span>
+        {yieldsReady && (
+          <label className="field"><span>Las cantidades son para</span>
+            <select className="input" value={yields} onChange={(e) => setYields(e.target.value)} aria-label="Cantidades para">
+              {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n === 1 ? '1 persona' : `${n} personas`}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="field"><span>{yieldsReady ? 'Ingredientes' : 'Ingredientes por ración'}, uno por línea (ej. «150 g Pechuga de pollo», «2 ud Huevos», «* Aceite» para básicos)</span>
           <textarea className="input" rows={7} value={ings} onChange={(e) => setIngs(e.target.value)} />
         </label>
         <label className="field"><span>Etiquetas (ensalada, tupper, rapido…)</span><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} /></label>
