@@ -197,6 +197,8 @@ export type NutrientKey = 'kcal' | 'fat' | 'saturated' | 'carbs' | 'sugars' | 'f
 /** Datos del envase. Hoy vienen de Open Food Facts (base de datos abierta). */
 export interface ProductInfo {
   source: 'off'
+  /** Base concreta: Open Food Facts, Open Beauty Facts, Open Products Facts… */
+  db?: string
   fetched_on: string
   brand?: string
   quantity?: string

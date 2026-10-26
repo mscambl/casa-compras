@@ -74,7 +74,7 @@ export function Scanner({ onCode, busy }: { onCode: (code: string) => void; busy
 
 /**
  * Escanear para añadir: si ya tenemos el producto lo devuelve; si no, lo crea con
- * los datos de Open Food Facts o pide el nombre.
+ * los datos de las bases abiertas (Open Food Facts y similares) o pide el nombre.
  */
 export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product) => void; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
@@ -104,7 +104,7 @@ export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product) => void; o
       if (!same.barcode) updateProduct(same, { barcode: code, info: found.info })
       return finish(same)
     }
-    toast(`${found.name}: datos de Open Food Facts`)
+    toast(`${found.name}: datos de ${found.info.db}`)
     finish(createProduct(found.name, { barcode: code, info: found.info, ...(found.pack ? { unit: found.pack.unit, pack_size: found.pack.size } : {}) }))
   }
 
@@ -125,7 +125,7 @@ export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product) => void; o
       {unknown ? (
         <form className="stack" onSubmit={saveName}>
           <p className="muted">
-            {unknown.offline ? 'Sin conexión con Open Food Facts.' : 'Open Food Facts no conoce este producto.'} Escribe cómo se llama y
+            {unknown.offline ? 'Sin conexión con las bases de datos.' : 'No aparece en ninguna base de datos abierta (alimentación, cosmética, hogar ni mascotas).'} Escribe cómo se llama y
             la próxima vez lo reconoceremos por el código ({unknown.code}).
           </p>
           <input className="input" autoFocus value={name} maxLength={80} placeholder="Nombre del producto" aria-label="Nombre del producto" onChange={(e) => setName(e.target.value)} />

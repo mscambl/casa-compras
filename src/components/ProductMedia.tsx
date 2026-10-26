@@ -57,7 +57,7 @@ export function PhotoGallery({ product: p0 }: { product: Product }) {
           <button key={path} type="button" onClick={() => setOpen({ path })} aria-label={`Ver foto ${i + 1}`}><Photo path={path} alt={product.name} /></button>
         ))}
         {offImg && (
-          <button type="button" onClick={() => setOpen({ url: offImg })} aria-label="Ver foto de Open Food Facts"><Photo url={offImg} alt={product.name} /></button>
+          <button type="button" onClick={() => setOpen({ url: offImg })} aria-label="Ver foto de la base de datos"><Photo url={offImg} alt={product.name} /></button>
         )}
         <button type="button" className="add-photo" disabled={busy} onClick={() => input.current?.click()}>
           <span><Icon name="camera" /><br />{busy ? 'Subiendo…' : 'Añadir foto'}</span>
@@ -72,7 +72,7 @@ export function PhotoGallery({ product: p0 }: { product: Product }) {
                 {photos[0] !== open.path && <button className="btn sm" onClick={() => { makeMain(product, open.path!); setOpen(null) }}>Poner como principal</button>}
                 <button className="btn sm danger" onClick={() => { void deletePhoto(product, open.path!); setOpen(null); toast('Foto borrada') }}>Borrar foto</button>
               </div>
-            ) : <span className="small" style={{ color: '#ccc' }}>Foto de Open Food Facts</span>}
+            ) : <span className="small" style={{ color: '#ccc' }}>Foto de {product.info?.db ?? 'Open Food Facts'}</span>}
             <button className="icon-btn" onClick={() => setOpen(null)} aria-label="Cerrar foto"><Icon name="x" /></button>
           </div>
           <Photo path={open.path} url={open.url} alt={product.name} />
@@ -100,14 +100,14 @@ export function PackInfo({ product: p0 }: { product: Product }) {
       const found = await lookupBarcode(code)
       if (found) {
         updateProduct(product, { barcode: code, info: found.info })
-        toast('Datos actualizados desde Open Food Facts')
+        toast(`Datos actualizados desde ${found.info.db}`)
       } else {
         updateProduct(product, { barcode: code })
-        toast('Código guardado. Open Food Facts no conoce este producto: puedes hacer una foto de la etiqueta.')
+        toast('Código guardado. Ninguna base de datos abierta conoce este producto: puedes hacer una foto de la etiqueta.')
       }
     } catch {
       updateProduct(product, { barcode: code })
-      toast('Código guardado. Sin conexión con Open Food Facts: prueba «Actualizar datos» más tarde.', 'error')
+      toast('Código guardado. Sin conexión con las bases de datos: prueba «Actualizar datos» más tarde.', 'error')
     } finally {
       setBusy(false)
     }
@@ -165,7 +165,7 @@ export function PackInfo({ product: p0 }: { product: Product }) {
             </details>
           )}
           <p className="small muted" style={{ margin: 0 }}>
-            Fuente: Open Food Facts, {shortDate(info.fetched_on)}. Son datos abiertos aportados por voluntarios: compruébalos en el envase si hay alergias.
+            Fuente: {info.db ?? 'Open Food Facts'}, {shortDate(info.fetched_on)}. Son datos abiertos aportados por voluntarios: compruébalos en el envase si hay alergias.
           </p>
           <ConfirmButton onConfirm={() => updateProduct(product, { info: null })}>Quitar estos datos</ConfirmButton>
         </div>

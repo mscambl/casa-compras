@@ -36,7 +36,7 @@ export default defineConfig({
             options: { cacheName: 'fotos', expiration: { maxEntries: 400, maxAgeSeconds: 7 * 86400 }, cacheableResponse: { statuses: [200] } },
           },
           {
-            urlPattern: ({ url }) => url.hostname === 'images.openfoodfacts.org',
+            urlPattern: ({ url }) => /^images\.open(food|beauty|products|petfood)facts\.org$/.test(url.hostname),
             handler: 'CacheFirst',
             options: { cacheName: 'fotos-off', expiration: { maxEntries: 400, maxAgeSeconds: 30 * 86400 }, cacheableResponse: { statuses: [0, 200] } },
           },

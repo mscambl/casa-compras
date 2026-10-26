@@ -1,9 +1,15 @@
 import { todayISO, toBase } from './format'
 import type { NutrientKey, ProductInfo, Unit } from './types'
 
-// Open Food Facts: base de datos abierta y gratuita de productos envasados.
+// Bases de datos abiertas y gratuitas de la familia Open Food Facts: alimentación,
+// cosmética e higiene, comida de mascotas y resto de productos (limpieza, hogar…).
 // Solo se envía el número del código de barras.
-const OFF_URL = 'https://world.openfoodfacts.org/api/v2/product/'
+export const DATABASES = [
+  { host: 'world.openfoodfacts.org', label: 'Open Food Facts' },
+  { host: 'world.openbeautyfacts.org', label: 'Open Beauty Facts' },
+  { host: 'world.openproductsfacts.org', label: 'Open Products Facts' },
+  { host: 'world.openpetfoodfacts.org', label: 'Open Pet Food Facts' },
+]
 const FIELDS = [
   'product_name_es', 'product_name', 'generic_name_es', 'brands', 'quantity', 'product_quantity', 'product_quantity_unit',
   'image_front_url', 'image_url', 'ingredients_text_es', 'ingredients_text', 'allergens_tags', 'traces_tags',
@@ -56,7 +62,7 @@ type Raw = Record<string, unknown>
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
 
 /** Convierte la respuesta de Open Food Facts en lo que guardamos. null si no hay producto. */
-export function parseOff(json: unknown): OffResult | null {
+export function parseOff(json: unknown, db = 'Open Food Facts'): OffResult | null {
   const j = json as Raw
   if (!j || j.status !== 1 || typeof j.product !== 'object' || !j.product) return null
   const p = j.product as Raw
@@ -82,6 +88,7 @@ export function parseOff(json: unknown): OffResult | null {
 
   const info: ProductInfo = {
     source: 'off',
+    db,
     fetched_on: todayISO(),
     brand,
     quantity: str(p.quantity),
@@ -99,15 +106,25 @@ export function parseOff(json: unknown): OffResult | null {
   return { name: (name ?? brand!).slice(0, 80), info, pack }
 }
 
-/** Busca un código en Open Food Facts. null si no lo conoce; lanza si no hay red. */
+async function lookupIn(db: (typeof DATABASES)[number], code: string, signal: AbortSignal): Promise<OffResult | null> {
+  const res = await fetch(`https://${db.host}/api/v2/product/${encodeURIComponent(code)}.json?lc=es&fields=${FIELDS}`, { signal })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`${db.label} respondió ${res.status}`)
+  return parseOff(await res.json(), db.label)
+}
+
+/**
+ * Busca un código en las cuatro bases a la vez y se queda con la primera que lo
+ * conozca (por orden de la lista). null si ninguna lo conoce; lanza si no hay red.
+ */
 export async function lookupBarcode(code: string): Promise<OffResult | null> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), 8000)
   try {
-    const res = await fetch(`${OFF_URL}${encodeURIComponent(code)}.json?lc=es&fields=${FIELDS}`, { signal: ctrl.signal })
-    if (res.status === 404) return null
-    if (!res.ok) throw new Error(`Open Food Facts respondió ${res.status}`)
-    return parseOff(await res.json())
+    const all = await Promise.allSettled(DATABASES.map((db) => lookupIn(db, code, ctrl.signal)))
+    for (const r of all) if (r.status === 'fulfilled' && r.value) return r.value
+    if (all.every((r) => r.status === 'rejected')) throw (all[0] as PromiseRejectedResult).reason
+    return null
   } finally {
     clearTimeout(t)
   }

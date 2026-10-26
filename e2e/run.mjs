@@ -291,9 +291,13 @@ await step('Categorías: borrar desde «Editar»', async () => {
 await step('Escanear código: busca en Open Food Facts y lo añade a la lista', async () => {
   png = await mike.page.screenshot({ clip: { x: 0, y: 0, width: 300, height: 200 } })
   for (const u of [mike, silvia]) {
-    await u.ctx.route('https://world.openfoodfacts.org/**', (r) => {
-      const code = r.request().url().match(/product\/(\d+)/)[1]
-      if (code === '8410000001235') {
+    await u.ctx.route(/^https:\/\/world\.open\w+facts\.org\//, (r) => {
+      const url = r.request().url()
+      const code = url.match(/product\/(\d+)/)[1]
+      if (code === '8430000004449' && url.includes('openbeautyfacts')) {
+        return r.fulfill({ json: { status: 1, code, product: { product_name: 'Gel de ducha avena', brands: 'Deliplus', product_quantity: 750, product_quantity_unit: 'ml' } } })
+      }
+      if (code === '8410000001235' && url.includes('openfoodfacts')) {
         return r.fulfill({ json: { status: 1, code, product: {
           product_name_es: 'Yogur griego natural', brands: 'Hacendado', quantity: '4 x 125 g', product_quantity: 500, product_quantity_unit: 'g',
           image_front_url: 'https://images.openfoodfacts.org/images/yogur.jpg', ingredients_text_es: 'Leche, nata, fermentos lácticos.',
@@ -303,7 +307,7 @@ await step('Escanear código: busca en Open Food Facts y lo añade a la lista', 
       }
       return r.fulfill({ status: 404, json: { status: 0, status_verbose: 'product not found' } })
     })
-    await u.ctx.route('https://images.openfoodfacts.org/**', (r) => r.fulfill({ body: png, contentType: 'image/png' }))
+    await u.ctx.route(/^https:\/\/images\.open\w+facts\.org\//, (r) => r.fulfill({ body: png, contentType: 'image/png' }))
     await u.page.click('nav >> text=Lista')
   }
   await mike.page.click('button[aria-label="Escanear código de barras"]')
@@ -354,6 +358,14 @@ await step('Código desconocido: pide el nombre y lo recuerda', async () => {
   await silvia.page.getByLabel('Número del código de barras').fill('8420000009995')
   await silvia.page.click('.sheet button:has-text("Buscar")')
   await silvia.page.getByText('ya está en la lista').waitFor()
+})
+
+await step('Código de cosmética: lo encuentra en Open Beauty Facts', async () => {
+  await mike.page.click('button[aria-label="Escanear código de barras"]')
+  await mike.page.getByLabel('Número del código de barras').fill('8430000004449')
+  await mike.page.click('.sheet button:has-text("Buscar")')
+  await mike.page.getByText('Gel de ducha avena: datos de Open Beauty Facts').waitFor()
+  await item(silvia.page, 'Gel de ducha avena').waitFor()
 })
 
 await step('Una persona ajena no ve ni puede escribir datos', async () => {

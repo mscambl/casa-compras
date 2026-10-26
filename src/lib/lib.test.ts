@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { gtinValid, normalizeBarcode, parseOff } from './off'
+import { DATABASES, gtinValid, lookupBarcode, normalizeBarcode, parseOff } from './off'
 import { packInput, packLabel, parseNum, pctChange, toBase, unitPrice, unitPriceLabel } from './format'
 import { guessCategoryName, norm, rank } from './text'
 import { alerts, budgetFor, forecast, metrics, monthSpend } from './stats'
@@ -165,5 +165,30 @@ describe('código de barras y Open Food Facts', () => {
   it('sin producto devuelve null', () => {
     expect(parseOff({ status: 0 })).toBeNull()
     expect(parseOff({ status: 1, product: {} })).toBeNull()
+  })
+})
+
+describe('búsqueda en varias bases', () => {
+  const realFetch = globalThis.fetch
+  const mock = (found: Record<string, unknown>, fail: string[] = []) => {
+    globalThis.fetch = (async (url: string) => {
+      const host = new URL(url).hostname
+      if (fail.includes(host)) throw new TypeError('Failed to fetch')
+      const p = found[host]
+      return new Response(JSON.stringify(p ? { status: 1, product: p } : { status: 0 }), { status: p ? 200 : 404 })
+    }) as typeof fetch
+  }
+  it('usa la primera base que conoce el código', async () => {
+    mock({ 'world.openbeautyfacts.org': { product_name: 'Gel de ducha' }, 'world.openproductsfacts.org': { product_name: 'Otro' } })
+    const r = await lookupBarcode('8430000004449')
+    expect(r?.name).toBe('Gel de ducha')
+    expect(r?.info.db).toBe('Open Beauty Facts')
+  })
+  it('null si ninguna lo conoce aunque alguna falle; error si fallan todas', async () => {
+    mock({}, ['world.openpetfoodfacts.org'])
+    expect(await lookupBarcode('8430000004449')).toBeNull()
+    mock({}, DATABASES.map((d) => d.host))
+    await expect(lookupBarcode('8430000004449')).rejects.toThrow()
+    globalThis.fetch = realFetch
   })
 })
