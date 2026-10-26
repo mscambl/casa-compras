@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defaultSlots, mondayOf, prefsOf, proposeWeek, recipeAllowed, weekNeeds } from './planner'
 import { parseIngredient, seedRecipes, SEED_RECIPES } from './recipes'
+import { LIGHT_RECIPES, lightPack } from './lightRecipes'
 import type { InventoryRow, PlanEntry, Product, Recipe } from './types'
 
 let n = 0
@@ -108,5 +109,39 @@ describe('lo que falta', () => {
   it('ignora fuera de casa y sobras', () => {
     const plan = [{ ...entry('2026-10-26', 'cena', tortilla, 2), status: 'fuera' as const }]
     expect(weekNeeds(plan, recipes, [], [], []).needs).toHaveLength(0)
+  })
+})
+
+describe('recetas ligeras', () => {
+  const base = seedRecipes('h', id)
+  const apply = (rs: Recipe[], pack: ReturnType<typeof lightPack>) => [
+    ...rs.map((r) => ({ ...r, ...(pack.adjust.find((a) => a.id === r.id)?.patch ?? {}) })),
+    ...pack.add,
+  ]
+  it('añade las nuevas, ajusta las de partida y luego no queda nada', () => {
+    const pack = lightPack(base, 'h', (i) => `l-${i}`)
+    expect(pack.add).toHaveLength(LIGHT_RECIPES.length)
+    expect(pack.adjust).toHaveLength(27)
+    expect(pack.skipped).toEqual([])
+    const after = apply(base, pack)
+    const again = lightPack(after, 'h', (i) => `l-${i}`)
+    expect(again.add).toHaveLength(0)
+    expect(again.adjust).toHaveLength(0)
+    expect(after.filter((r) => r.tags.includes('crema')).every((r) => r.slot === 'comida')).toBe(true)
+    expect(after.find((r) => r.name === 'Crema de calabacín')!.slot).toBe('comida')
+    expect(after.find((r) => r.name.startsWith('Pizza'))!.tags).not.toContain('ligera')
+  })
+  it('no toca las recetas editadas a mano', () => {
+    const edited = base.map((r) => (r.name === 'Ensalada de arroz' ? { ...r, steps: 'Mi versión' } : r))
+    const pack = lightPack(edited, 'h', (i) => `l-${i}`)
+    expect(pack.skipped).toEqual(['Ensalada de arroz'])
+    expect(pack.adjust.some((a) => a.name === 'Ensalada de arroz')).toBe(false)
+  })
+  it('con prioridad, el planificador propone sobre todo recetas ligeras', () => {
+    const all = apply(base, lightPack(base, 'h', (i) => `l-${i}`))
+    const ctx = { stock: new Set<string>(), expiring: new Set<string>() }
+    const light = (p: boolean) => proposeWeek('2026-10-26', [], all, prefsOf({ preferLight: p }), ctx).filter((o) => o.recipe.tags.includes('ligera')).length
+    expect(light(true)).toBeGreaterThanOrEqual(light(false))
+    expect(light(true)).toBeGreaterThanOrEqual(10)
   })
 })

@@ -45,6 +45,7 @@ export interface ScoreCtx {
   recipeUses: Map<string, number>
   recentByDay: Map<string, Set<string>> // día -> recetas
   dayIngredients?: Map<string, Set<string>> // día -> ingredientes ya usados ese día
+  preferLight?: boolean
 }
 
 /** Registra una receta ya puesta en el menú para puntuar las siguientes. */
@@ -89,6 +90,7 @@ export function scoreRecipe(r: Recipe, day: string, slot: MealSlot, ctx: ScoreCt
     if (!inStock && !reused) s -= 1.5 // obliga a comprar algo nuevo
   }
   if (r.tags.includes('ensalada')) s += 1
+  if (ctx.preferLight && r.tags.includes('ligera')) s += 4
   if (slot === 'comida' && r.tags.includes('tupper')) s += 2
   s -= r.prep_min / 15
   s -= 5 * (ctx.recipeUses.get(r.id) ?? 0)
@@ -109,7 +111,7 @@ export function proposeWeek(
   const days = new Set(weekDays(monday))
   const weekPlan = plan.filter((p) => days.has(p.day))
   const rmap = new Map(recipes.map((r) => [r.id, r]))
-  const ctx: ScoreCtx = { ...stockCtx, weekIngredients: new Map(), recipeUses: new Map(), recentByDay: new Map(), dayIngredients: new Map() }
+  const ctx: ScoreCtx = { ...stockCtx, weekIngredients: new Map(), recipeUses: new Map(), recentByDay: new Map(), dayIngredients: new Map(), preferLight: prefs.preferLight }
   const note = (r: Recipe, day: string) => notePlanned(ctx, r, day)
   for (const p of weekPlan) {
     const r = p.recipe_id ? rmap.get(p.recipe_id) : undefined

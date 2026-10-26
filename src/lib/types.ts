@@ -181,6 +181,8 @@ export interface Prefs {
   lunchServings?: number
   dinnerServings?: number
   weekendLunch?: boolean
+  /** Da prioridad a las recetas con la etiqueta «ligera». */
+  preferLight?: boolean
 }
 
 export const DEFAULT_PREFS: Required<Prefs> = {
@@ -190,6 +192,7 @@ export const DEFAULT_PREFS: Required<Prefs> = {
   lunchServings: 1,
   dinnerServings: 2,
   weekendLunch: false,
+  preferLight: false,
 }
 
 export type NutrientKey = 'kcal' | 'fat' | 'saturated' | 'carbs' | 'sugars' | 'fiber' | 'proteins' | 'salt'

@@ -274,6 +274,22 @@ await step('Menú: excluir un ingrediente lo quita de las propuestas', async () 
   await mike.page.keyboard.press('Escape')
 })
 
+await step('Menú: añadir las recetas ligeras y verlas en el otro móvil', async () => {
+  await mike.page.getByRole('button', { name: 'Recetas', exact: true }).click()
+  await mike.page.click('.sheet button:has-text("Añadir recetas ligeras")')
+  await mike.page.getByText('22 recetas nuevas y 27 ajustadas').waitFor()
+  assert(await mike.page.getByTestId('light-pack').count() === 0, 'sigue ofreciendo el paquete')
+  await mike.page.keyboard.press('Escape')
+  await mike.page.click('button[aria-label="Preferencias"]')
+  assert(await mike.page.getByPlaceholder('Ej. setas, marisco').inputValue() === 'huevo', 'perdió las exclusiones')
+  assert(await mike.page.getByLabel('Dar prioridad a las recetas ligeras').isChecked(), 'sin prioridad a ligeras')
+  await mike.page.keyboard.press('Escape')
+  await silvia.page.click('nav >> text=Menú')
+  await silvia.page.getByRole('button', { name: 'Recetas', exact: true }).click()
+  await silvia.page.locator('.sheet .li .title', { hasText: 'Pisto con huevo' }).waitFor()
+  await silvia.page.keyboard.press('Escape')
+})
+
 await step('Categorías: añadir, subir con «Editar» y verlo en el otro móvil', async () => {
   await mike.page.click('nav >> text=Más')
   await mike.page.click('text=Categorías')

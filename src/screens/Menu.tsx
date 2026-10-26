@@ -7,6 +7,7 @@ import {
   type Need, type ScoreCtx,
 } from '../lib/planner'
 import { ingredientLabel, parseIngredient, seedRecipes } from '../lib/recipes'
+import { lightPack } from '../lib/lightRecipes'
 import { norm, rank } from '../lib/text'
 import type { Equipment, Ingredient, MealSlot, PlanEntry, Prefs, Recipe } from '../lib/types'
 import { ConfirmButton, Icon, Sheet, toast } from '../components/ui'
@@ -16,6 +17,8 @@ const EQUIP_LABEL: Record<Equipment, string> = { ninguno: 'Sin cocinar', microon
 
 /** Ids fijos por hogar: si los dos abren la app a la vez, el recetario no se duplica. */
 const seedId = (hid: string, i: number) => `${hid.slice(0, 24)}${(i + 1).toString(16).padStart(12, '0')}`
+// Recetas ligeras: otro tramo de ids fijos (0x101…) para no chocar con el recetario inicial.
+const lightId = (hid: string, i: number) => seedId(hid, 0x100 + i)
 
 function useSeedRecipes() {
   const ready = useStore((s) => s.menusReady && s.loaded)
@@ -171,7 +174,7 @@ function SlotSheet({ day, slot, entry, onClose }: { day: string; slot: MealSlot;
   const ranked = useMemo(() => {
     const base = buildCtx(products, inventory, todayISO())
     const days = weekDays(mondayOf(day))
-    const ctx: ScoreCtx = { ...base, weekIngredients: new Map(), recipeUses: new Map(), recentByDay: new Map() }
+    const ctx: ScoreCtx = { ...base, weekIngredients: new Map(), recipeUses: new Map(), recentByDay: new Map(), preferLight: prefs.preferLight }
     const rmap = new Map(recipes.map((r) => [r.id, r]))
     for (const p of plan) {
       if (!days.includes(p.day) || (p.day === day && p.slot === slot)) continue
@@ -293,11 +296,30 @@ function RecipesSheet({ onClose }: { onClose: () => void }) {
   const recipes = useStore((s) => s.recipes)
   const [editing, setEditing] = useState<Recipe | 'new' | null>(null)
   const [q, setQ] = useState('')
+  const household = useStore((s) => s.household)
+  const pack = useMemo(() => (household ? lightPack(recipes, household.id, (i) => lightId(household.id, i)) : null), [recipes, household])
   if (editing) return <RecipeEdit recipe={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
+  const applyPack = () => {
+    if (!pack || !household) return
+    for (const r of pack.add) upsert('recipes', r)
+    for (const a of pack.adjust) update('recipes', a.id, a.patch)
+    update('households', household.id, { prefs: { ...(household.prefs ?? {}), preferLight: true } })
+    toast(`${pack.add.length} recetas nuevas y ${pack.adjust.length} ajustadas${pack.skipped.length ? `. No he tocado ${pack.skipped.length} que habíais editado` : ''}`)
+  }
   const list = q.trim() ? rank(recipes, q, 100) : recipes.slice().sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return (
     <Sheet title="Recetas" onClose={onClose}>
       <div className="stack">
+        {pack && (pack.add.length > 0 || pack.adjust.length > 0) && (
+          <div className="card stack" data-testid="light-pack">
+            <div><b>Recetas ligeras</b></div>
+            <p className="small muted" style={{ margin: 0 }}>
+              {pack.add.length} nuevas (cremas para la comida, cenas ligeras y tuppers) y {pack.adjust.length} ajustes a las de partida.
+              Las que hayáis editado no se tocan. El planificador les dará prioridad.
+            </p>
+            <button className="btn primary" onClick={applyPack}>Añadir recetas ligeras</button>
+          </div>
+        )}
         <div className="row">
           <input className="input" placeholder="Buscar" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn" onClick={() => setEditing('new')}><Icon name="plus" /> Nueva</button>
@@ -390,11 +412,14 @@ function PrefsSheet({ onClose }: { onClose: () => void }) {
   const [equipment, setEquipment] = useState<Equipment[]>(p.equipment)
   const [weekendLunch, setWeekendLunch] = useState(p.weekendLunch)
   const [lunchTwo, setLunchTwo] = useState(p.lunchServings >= 2)
+  const [preferLight, setPreferLight] = useState(p.preferLight)
   const lunchName = members[0]?.display_name ?? 'Mike'
   const otherName = members[1]?.display_name ?? 'Silvia'
 
   const save = () => {
     const prefs: Prefs = {
+      ...(household?.prefs ?? {}),
+      preferLight,
       excluded: excluded.split(',').map((x) => x.trim()).filter(Boolean),
       maxPrep: Math.max(5, Math.min(240, Number(maxPrep) || 30)),
       equipment,
@@ -421,6 +446,7 @@ function PrefsSheet({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <label className="toggle"><span>Comida entre semana también para {otherName} por defecto</span><input type="checkbox" checked={lunchTwo} onChange={(e) => setLunchTwo(e.target.checked)} /></label>
+        <label className="toggle"><span>Dar prioridad a las recetas ligeras</span><input type="checkbox" checked={preferLight} onChange={(e) => setPreferLight(e.target.checked)} /></label>
         <label className="toggle"><span>Planificar también la comida del fin de semana</span><input type="checkbox" checked={weekendLunch} onChange={(e) => setWeekendLunch(e.target.checked)} /></label>
         <p className="small muted">Ahora: comida para {lunchName} de lunes a viernes y cena para dos. Se puede cambiar cada día desde el menú.</p>
         <button className="btn primary block" onClick={save}>Guardar</button>

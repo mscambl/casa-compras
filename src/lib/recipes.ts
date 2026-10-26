@@ -1,6 +1,6 @@
 import type { Ingredient, Recipe } from './types'
 
-type Seed = Omit<Recipe, 'id' | 'household_id' | 'active' | 'ingredients'> & { ingredients: string[] }
+export type Seed = Omit<Recipe, 'id' | 'household_id' | 'active' | 'ingredients'> & { ingredients: string[] }
 
 // "150 g Pechuga de pollo" | "2 ud Huevos" | "* Aceite de oliva" (básico de despensa)
 export function parseIngredient(line: string): Ingredient | null {
