@@ -1,5 +1,5 @@
 export type BudgetGroup = 'alimentacion' | 'limpieza' | 'higiene' | 'papel_lavanderia' | 'otros'
-export type Unit = 'ud' | 'kg' | 'l' | 'dosis'
+export type Unit = 'ud' | 'kg' | 'l' | 'dosis' | 'm'
 export type Location = 'nevera' | 'congelador' | 'despensa' | 'bano' | 'limpieza' | 'otro'
 export type PriceSource = 'ticket' | 'manual' | 'estimado' | 'oferta'
 

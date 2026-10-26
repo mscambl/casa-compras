@@ -19,6 +19,12 @@ describe('números y unidades', () => {
     expect(toBase(500, 'g')).toEqual({ unit: 'kg', size: 0.5 })
     expect(toBase(750, 'ml')).toEqual({ unit: 'l', size: 0.75 })
     expect(toBase(12, 'ud')).toEqual({ unit: 'ud', size: 12 })
+    expect(toBase(50, 'cm')).toEqual({ unit: 'm', size: 0.5 })
+    expect(toBase(30, 'm')).toEqual({ unit: 'm', size: 30 })
+    expect(packLabel('m', 30)).toBe('30 m')
+    expect(packLabel('m', 0.5)).toBe('50 cm')
+    expect(packInput('m', 0.5)).toEqual({ size: '50', unit: 'cm' })
+    expect(unitPriceLabel(2.4, 'm', 30)).toMatch(/^0,08\s€\/m$/)
   })
   it('precio por unidad comparable', () => {
     expect(unitPrice(1.2, 0.5)).toBeCloseTo(2.4)

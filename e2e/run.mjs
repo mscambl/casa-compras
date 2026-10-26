@@ -147,6 +147,24 @@ await step('Precio por kg en el catálogo (1,15 €/kg)', async () => {
   await mike.page.keyboard.press('Escape')
 })
 
+await step('Formato en metros: 30 m de papel de aluminio y precio por metro', async () => {
+  await mike.page.click('nav >> text=Lista')
+  await addToList(mike.page, 'Papel de aluminio')
+  await item(mike.page, 'Papel de aluminio').locator('.li-btn').click()
+  await mike.page.getByPlaceholder('Ej. 500').fill('30')
+  await mike.page.locator('.sheet select').filter({ has: mike.page.locator('option[value=cm]') }).selectOption('m')
+  await mike.page.click('.sheet button:has-text("Guardar")')
+  // Deja llegar el eco en tiempo real del alta antes de volver a abrir la ficha.
+  await mike.page.waitForFunction(() => window.__cc.getState().pending === 0)
+  await mike.page.waitForTimeout(1500)
+  await item(mike.page, 'Papel de aluminio').locator('.li-btn').click()
+  assert(await mike.page.getByPlaceholder('Ej. 500').inputValue() === '30', 'no guardó el formato')
+  await mike.page.getByPlaceholder('Precio visto (€)').fill('2,40')
+  await mike.page.click('.sheet button:has-text("Guardar precio")')
+  await mike.page.getByText('0,08 €/m').waitFor()
+  await mike.page.keyboard.press('Escape')
+})
+
 await step('Presupuesto: Silvia lo fija y Mike lo ve en inicio', async () => {
   await silvia.page.click('nav >> text=Gastos')
   await silvia.page.click('button:has-text("Fijar presupuesto")')

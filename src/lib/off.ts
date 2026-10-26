@@ -79,7 +79,7 @@ export function parseOff(json: unknown, db = 'Open Food Facts'): OffResult | nul
   const qUnit = str(p.product_quantity_unit)?.toLowerCase()
   const qty = Number(p.product_quantity)
   let pack: OffResult['pack'] = null
-  if (Number.isFinite(qty) && qty > 0 && (qUnit === 'g' || qUnit === 'ml' || qUnit === 'kg' || qUnit === 'l')) pack = toBase(qty, qUnit)
+  if (Number.isFinite(qty) && qty > 0 && (qUnit === 'g' || qUnit === 'ml' || qUnit === 'kg' || qUnit === 'l' || qUnit === 'm' || qUnit === 'cm')) pack = toBase(qty, qUnit)
   const grade = str(p.nutriscore_grade)?.toLowerCase()
   const nova = Number(p.nova_group)
   const tags = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((t): t is string => typeof t === 'string').map(allergenLabel))] : [])

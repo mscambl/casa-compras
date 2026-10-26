@@ -21,13 +21,14 @@ export function parseNum(s: string | number | null | undefined): number | null {
 export const round2 = (n: number) => Math.round(n * 100) / 100
 
 /** Unidad de entrada (lo que escribe el usuario) -> unidad comparable. */
-export type InputUnit = 'g' | 'kg' | 'ml' | 'l' | 'ud' | 'dosis'
-export const INPUT_UNITS: InputUnit[] = ['ud', 'g', 'kg', 'ml', 'l', 'dosis']
+export type InputUnit = 'g' | 'kg' | 'ml' | 'l' | 'cm' | 'm' | 'ud' | 'dosis'
+export const INPUT_UNITS: InputUnit[] = ['ud', 'g', 'kg', 'ml', 'l', 'cm', 'm', 'dosis']
 
 export function toBase(size: number, u: InputUnit): { unit: Unit; size: number } {
   switch (u) {
     case 'g': return { unit: 'kg', size: size / 1000 }
     case 'ml': return { unit: 'l', size: size / 1000 }
+    case 'cm': return { unit: 'm', size: size / 100 }
     default: return { unit: u, size }
   }
 }
@@ -37,6 +38,7 @@ export function packLabel(unit: Unit, size: number | null): string {
   if (!size) return ''
   if (unit === 'kg' && size < 1) return `${num.format(round3(size * 1000))} g`
   if (unit === 'l' && size < 1) return `${num.format(round3(size * 1000))} ml`
+  if (unit === 'm' && size < 1) return `${num.format(round3(size * 100))} cm`
   return `${num.format(size)} ${unit}`
 }
 
@@ -45,12 +47,13 @@ export function packInput(unit: Unit, size: number | null): { size: string; unit
   if (!size) return { size: '', unit: unit }
   if (unit === 'kg' && size < 1) return { size: String(round3(size * 1000)), unit: 'g' }
   if (unit === 'l' && size < 1) return { size: String(round3(size * 1000)), unit: 'ml' }
+  if (unit === 'm' && size < 1) return { size: String(round3(size * 100)), unit: 'cm' }
   return { size: String(size), unit }
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000
 
-/** Precio por unidad comparable (€/kg, €/l, €/ud, €/dosis). */
+/** Precio por unidad comparable (€/kg, €/l, €/m, €/ud, €/dosis). */
 export function unitPrice(price: number | null | undefined, packSize: number | null | undefined): number | null {
   if (price == null || !packSize || packSize <= 0) return null
   return price / packSize

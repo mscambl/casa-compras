@@ -49,7 +49,7 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
     const nm = name.trim()
     if (!nm) return toast('El nombre no puede estar vacío', 'error')
     const size = parseNum(packSize)
-    const base = size ? toBase(size, packUnit) : { unit: packUnit === 'g' ? 'kg' : packUnit === 'ml' ? 'l' : packUnit, size: null }
+    const base = size ? toBase(size, packUnit) : { unit: packUnit === 'g' ? 'kg' : packUnit === 'ml' ? 'l' : packUnit === 'cm' ? 'm' : packUnit, size: null }
     updateProduct(product, {
       name: nm,
       category_id: cat || null,
@@ -127,7 +127,7 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
           </label>
         </div>
         <div className="field">
-          <span>Formato habitual (para comparar por kg, litro o unidad)</span>
+          <span>Formato habitual (para comparar por kg, litro, metro o unidad)</span>
           <div className="row">
             <input className="input" inputMode="decimal" placeholder="Ej. 500" value={packSize} onChange={(e) => setPackSize(e.target.value)} />
             <select className="input" style={{ width: 110 }} value={packUnit} onChange={(e) => setPackUnit(e.target.value as InputUnit)}>
