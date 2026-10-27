@@ -165,6 +165,25 @@ await step('Formato en metros: 30 m de papel de aluminio y precio por metro', as
   await mike.page.keyboard.press('Escape')
 })
 
+await step('Historial de precios: corregir y borrar un precio', async () => {
+  await item(mike.page, 'Papel de aluminio').locator('.li-btn').click()
+  await mike.page.getByTestId('price').first().click()
+  const ed = mike.page.getByTestId('price-edit')
+  await ed.getByLabel('Precio (€)').fill('2,10')
+  await ed.locator('button:has-text("Guardar")').click()
+  await mike.page.getByText('Precio corregido').waitFor()
+  await mike.page.getByText('0,07 €/m').waitFor()
+  await mike.page.keyboard.press('Escape')
+  await item(mike.page, 'Papel de aluminio').getByText('2,10 €').waitFor()
+  await item(mike.page, 'Papel de aluminio').locator('.li-btn').click()
+  await mike.page.getByTestId('price').first().click()
+  await mike.page.getByTestId('price-edit').locator('button:has-text("Borrar")').click()
+  await mike.page.getByTestId('price-edit').locator('button:has-text("Toca otra vez")').click()
+  await mike.page.getByText('Aún no hay precios').waitFor()
+  await mike.page.keyboard.press('Escape')
+  await item(mike.page, 'Papel de aluminio').getByText('Sin precio').waitFor()
+})
+
 await step('Presupuesto: Silvia lo fija y Mike lo ve en inicio', async () => {
   await silvia.page.click('nav >> text=Gastos')
   await silvia.page.click('button:has-text("Fijar presupuesto")')
