@@ -47,6 +47,7 @@ async function addToList(page, name) {
   await input.press('Enter')
 }
 const item = (page, name) => page.getByTestId('item').filter({ has: page.locator('.title', { hasText: new RegExp(`^${name}$`) }) })
+const stock = (page, name) => page.getByTestId('stock').filter({ has: page.locator('.title', { hasText: new RegExp(`^${name}$`) }) })
 const shot = async (page, n) => SHOTS && page.screenshot({ path: `${SHOTS}/${n}.png` })
 
 const browser = await chromium.launch()
@@ -389,7 +390,7 @@ await step('Ficha: Nutri-Score, alérgenos y tabla nutricional', async () => {
   await info.getByText('139 kcal').waitFor()
   await mike.page.getByText('8410000001235').waitFor()
   const pack = await mike.page.getByPlaceholder('Ej. 500').inputValue()
-  assert(pack === '500', 'formato ' + pack)
+  assert(pack === '125', 'formato ' + pack) // «4 x 125 g»: el código es de un pack de 4
   await shot(mike.page, 'ficha-envase')
 })
 
@@ -430,6 +431,46 @@ await step('Código de cosmética: lo encuentra en Open Beauty Facts', async () 
   await mike.page.click('.sheet button:has-text("Buscar")')
   await mike.page.getByText('Gel de ducha avena: datos de Open Beauty Facts').waitFor()
   await item(silvia.page, 'Gel de ducha avena').waitFor()
+})
+
+await step('Pack: el código del pack suma sus unidades al mismo producto', async () => {
+  await item(mike.page, 'Yogur griego natural').locator('.li-btn').click()
+  await mike.page.click('.sheet button:has-text("Añadir código")')
+  const sc = mike.page.locator('.sheet').last()
+  await sc.getByLabel('Número del código de barras').fill('8410000001242')
+  await sc.locator('button:has-text("Buscar")').click()
+  await mike.page.getByLabel('Unidades del código nuevo').fill('4')
+  await mike.page.click('.sheet button:has-text("Guardar código")')
+  await mike.page.getByText('Código de pack de 4 guardado').waitFor()
+  assert(await mike.page.getByTestId('code-row').count() === 2, 'no hay dos códigos')
+  await mike.page.keyboard.press('Escape')
+  await mike.page.click('nav >> text=En casa')
+  await mike.page.click('button[aria-label="Escanear código de barras"]')
+  await mike.page.getByLabel('Número del código de barras').fill('8410000001242')
+  await mike.page.click('.sheet button:has-text("Buscar")')
+  await mike.page.getByText('Yogur griego natural: 4 en casa').waitFor()
+})
+
+await step('Caducidades: dos fechas y se gasta primero la más próxima', async () => {
+  const iso = (d) => { const t = new Date(); t.setDate(t.getDate() + d); return t.toISOString().slice(0, 10) }
+  await stock(mike.page, 'Yogur griego natural').locator('.li-btn').click()
+  const lots = mike.page.getByTestId('lots')
+  for (const [n, d] of [['2', 3], ['2', 10]]) {
+    await lots.getByLabel('Unidades que caducan').fill(n)
+    await lots.getByLabel('Fecha de caducidad').fill(iso(d))
+    await lots.locator('button:has-text("Añadir")').click()
+  }
+  await mike.page.waitForFunction(() => document.querySelectorAll('[data-testid=lot]').length === 2)
+  await shot(mike.page, 'caducidades')
+  await mike.page.keyboard.press('Escape')
+  await stock(mike.page, 'Yogur griego natural').getByText('2 fechas').waitFor()
+  await stock(mike.page, 'Yogur griego natural').getByRole('button', { name: 'Menos' }).click()
+  await mike.page.waitForFunction((first) => {
+    const s = window.__cc.getState()
+    const p = s.products.find((x) => x.name === 'Yogur griego natural')
+    const r = s.inventory.find((x) => x.product_id === p.id)
+    return r.qty === 3 && r.lots.length === 2 && r.lots[0].qty === 1 && r.expires_on === first
+  }, iso(3))
 })
 
 await step('Una persona ajena no ve ni puede escribir datos', async () => {

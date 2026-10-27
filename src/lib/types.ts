@@ -60,6 +60,8 @@ export interface Product {
   barcode?: string | null
   photos?: string[]
   info?: ProductInfo | null
+  /** Todos los códigos con sus unidades (pack de 6 = 6). Solo con la migración de packs. */
+  codes?: ProductCode[]
   created_at?: string
 }
 
@@ -85,10 +87,16 @@ export interface InventoryRow {
   product_id: string
   qty: number
   location: Location | null
+  /** Fecha más próxima (la de los lotes si los hay). */
   expires_on: string | null
+  /** Parte de lo que hay, repartida por fechas de caducidad. Solo con la migración de packs. */
+  lots?: Lot[]
   updated_by: string | null
   updated_at: string
 }
+
+export interface ProductCode { code: string; units: number }
+export interface Lot { id: string; qty: number; expires_on: string }
 
 export interface Purchase {
   id: string

@@ -66,11 +66,11 @@ export function ListScreen() {
   const cart = round2(checked.reduce((a, i) => a + (itemPrice(i, pmap.get(i.product_id)) ?? 0), 0))
   const unknown = items.filter((i) => itemPrice(i, pmap.get(i.product_id)) == null).length
 
-  const add = (picked: Product | string) => {
+  const add = (picked: Product | string, units = 1) => {
     const p = typeof picked === 'string' ? getOrCreateProduct(picked) : picked
-    const { item, duplicate } = addToList(p)
+    const { item, duplicate } = addToList(p, units)
     if (duplicate) {
-      toast(`${p.name} ya está en la lista (${item.qty}).`, 'info', { label: 'Sumar 1', run: () => setItemQty(item, item.qty + 1) })
+      toast(`${p.name} ya está en la lista (${item.qty}).`, 'info', { label: `Sumar ${units}`, run: () => setItemQty(item, item.qty + units) })
     }
   }
 

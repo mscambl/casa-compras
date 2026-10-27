@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DATABASES, gtinValid, lookupBarcode, normalizeBarcode, parseOff } from './off'
+import { codesOf, earliestLot, findByCode, lotsAfterStock, packUnitsFromQuantity, withCode, withoutCode } from './codes'
 import { packInput, packLabel, parseNum, pctChange, toBase, unitPrice, unitPriceLabel } from './format'
 import { guessCategoryName, norm, rank } from './text'
 import { alerts, budgetFor, forecast, metrics, monthSpend } from './stats'
@@ -196,5 +197,32 @@ describe('búsqueda en varias bases', () => {
     mock({}, DATABASES.map((d) => d.host))
     await expect(lookupBarcode('8430000004449')).rejects.toThrow()
     globalThis.fetch = realFetch
+  })
+})
+
+describe('packs y lotes', () => {
+  const p = { barcode: '111', codes: [] } as unknown as import('./types').Product
+  it('el código principal vale 1 ud y se pueden añadir packs', () => {
+    expect(codesOf(p)).toEqual([{ code: '111', units: 1 }])
+    const q = { ...p, ...withCode(p, '222', 6) }
+    expect(findByCode([q], '222')).toEqual({ product: q, units: 6 })
+    expect(findByCode([q], '111')?.units).toBe(1)
+    const r = { ...q, ...withoutCode(q, '111') }
+    expect(r.barcode).toBe('222')
+    expect(codesOf(r)).toEqual([{ code: '222', units: 6 }])
+  })
+  it('deduce las unidades del pack', () => {
+    expect(packUnitsFromQuantity('4 x 125 g')).toBe(4)
+    expect(packUnitsFromQuantity('Pack 6 x 1 l')).toBe(6)
+    expect(packUnitsFromQuantity('12 rollos')).toBe(12)
+    expect(packUnitsFromQuantity('500 g')).toBeNull()
+  })
+  it('gasta primero lo que caduca antes', () => {
+    const lots = [{ id: 'b', qty: 6, expires_on: '2026-11-15' }, { id: 'a', qty: 4, expires_on: '2026-11-02' }]
+    expect(lotsAfterStock(lots, 12, 11)).toEqual([{ id: 'a', qty: 3, expires_on: '2026-11-02' }, { id: 'b', qty: 6, expires_on: '2026-11-15' }])
+    expect(lotsAfterStock(lots, 12, 5)).toEqual([{ id: 'b', qty: 3, expires_on: '2026-11-15' }])
+    expect(lotsAfterStock(lots, 12, 13)).toHaveLength(2)
+    expect(earliestLot(lotsAfterStock(lots, 12, 5))).toBe('2026-11-15')
+    expect(lotsAfterStock(lots, 12, 0)).toEqual([])
   })
 })

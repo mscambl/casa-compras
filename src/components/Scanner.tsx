@@ -3,6 +3,7 @@ import { getState, useStore } from '../lib/store'
 import { createProduct, findProductByName, updateProduct } from '../lib/actions'
 import { gtinValid, lookupBarcode, normalizeBarcode, type OffResult } from '../lib/off'
 import type { Product } from '../lib/types'
+import { findByCode, packUnitsFromQuantity, withCode } from '../lib/codes'
 import { Sheet, toast } from './ui'
 
 /** Cámara que lee códigos de barras, con la opción de escribir el número a mano. */
@@ -76,19 +77,29 @@ export function Scanner({ onCode, busy }: { onCode: (code: string) => void; busy
  * Escanear para añadir: si ya tenemos el producto lo devuelve; si no, lo crea con
  * los datos de las bases abiertas (Open Food Facts y similares) o pide el nombre.
  */
-export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product) => void; onClose: () => void }) {
+export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product, units: number) => void; onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [unknown, setUnknown] = useState<{ code: string; offline: boolean } | null>(null)
   const [name, setName] = useState('')
+  const [unitsStr, setUnitsStr] = useState('1')
+  const packsReady = useStore((s) => s.packsReady)
 
-  const finish = (p: Product) => {
-    onPick(p)
+  const finish = (p: Product, units = 1) => {
+    if (units > 1) toast(`${p.name}: pack de ${units}`)
+    onPick(p, units)
     onClose()
+  }
+  /** Asocia el código a un producto que ya existe (si se puede, con sus unidades). */
+  const link = (p: Product, code: string, units: number, extra: Partial<Product> = {}) => {
+    if (packsReady) updateProduct(p, { ...withCode(p, code, units), ...extra })
+    else if (!p.barcode) updateProduct(p, { barcode: code, ...extra })
   }
 
   const onCode = async (code: string) => {
-    const known = getState().products.find((p) => p.barcode === code)
-    if (known) return finish(known)
+    const known = packsReady ? findByCode(getState().products, code) : null
+    const legacy = getState().products.find((p) => p.barcode === code)
+    if (known) return finish(known.product, known.units)
+    if (legacy) return finish(legacy)
     setBusy(true)
     let found: OffResult | null = null
     let offline = false
@@ -99,25 +110,29 @@ export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product) => void; o
     }
     setBusy(false)
     if (!found) return setUnknown({ code, offline })
+    const units = (packsReady && packUnitsFromQuantity(found.info.quantity)) || 1
     const same = findProductByName(found.name)
     if (same) {
-      if (!same.barcode) updateProduct(same, { barcode: code, info: found.info })
-      return finish(same)
+      link(same, code, units, same.info ? {} : { info: found.info })
+      return finish(same, units)
     }
     toast(`${found.name}: datos de ${found.info.db}`)
-    finish(createProduct(found.name, { barcode: code, info: found.info, ...(found.pack ? { unit: found.pack.unit, pack_size: found.pack.size } : {}) }))
+    // Si el código es de un pack, el producto es la unidad: el formato se reparte entre las unidades.
+    const pack = found.pack ? { unit: found.pack.unit, pack_size: Math.round((found.pack.size / units) * 1000) / 1000 } : {}
+    finish(createProduct(found.name, { barcode: code, info: found.info, ...pack, ...(units > 1 ? { codes: [{ code, units }] } : {}) }), units)
   }
 
   const saveName = (e: React.FormEvent) => {
     e.preventDefault()
     const nm = name.trim()
     if (!nm || !unknown) return
+    const units = packsReady ? Math.max(1, Math.round(Number(unitsStr.replace(',', '.'))) || 1) : 1
     const same = findProductByName(nm)
     if (same) {
-      if (!same.barcode) updateProduct(same, { barcode: unknown.code })
-      return finish(same)
+      link(same, unknown.code, units)
+      return finish(same, units)
     }
-    finish(createProduct(nm, { barcode: unknown.code }))
+    finish(createProduct(nm, { barcode: unknown.code, ...(units > 1 ? { codes: [{ code: unknown.code, units }] } : {}) }), units)
   }
 
   return (
@@ -129,6 +144,12 @@ export function ScanToAdd({ onPick, onClose }: { onPick: (p: Product) => void; o
             la próxima vez lo reconoceremos por el código ({unknown.code}).
           </p>
           <input className="input" autoFocus value={name} maxLength={80} placeholder="Nombre del producto" aria-label="Nombre del producto" onChange={(e) => setName(e.target.value)} />
+          {packsReady && (
+            <label className="field"><span>Unidades que trae este código (1 si es suelto; 6 si es un pack de 6)</span>
+              <input className="input" inputMode="numeric" value={unitsStr} onChange={(e) => setUnitsStr(e.target.value)} aria-label="Unidades del código" />
+            </label>
+          )}
+          <p className="small muted" style={{ margin: 0 }}>Si ya tenéis ese producto (por ejemplo, la versión suelta), escribe el mismo nombre y se unirán.</p>
           <button className="btn primary block" disabled={!name.trim()}>Guardar</button>
         </form>
       ) : (

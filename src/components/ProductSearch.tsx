@@ -11,7 +11,8 @@ export function ProductSearch({
   placeholder, onPick, badge, sticky = true,
 }: {
   placeholder: string
-  onPick: (p: Product | string) => void
+  /** units: unidades que trae el código escaneado (pack de 6 = 6). */
+  onPick: (p: Product | string, units?: number) => void
   badge?: (p: Product) => string | null
   sticky?: boolean
 }) {
@@ -22,8 +23,8 @@ export function ProductSearch({
   const results = useMemo(() => rank(products, q, 6), [products, q])
   const exact = results.find((p) => norm(p.name) === norm(q))
 
-  const pick = (p: Product | string) => {
-    onPick(p)
+  const pick = (p: Product | string, units?: number) => {
+    onPick(p, units)
     setQ('')
   }
 
@@ -54,7 +55,7 @@ export function ProductSearch({
           </button>
         )}
       </form>
-      {scan && <ScanToAdd onPick={(p) => pick(p)} onClose={() => setScan(false)} />}
+      {scan && <ScanToAdd onPick={(p, u) => pick(p, u)} onClose={() => setScan(false)} />}
       {q.trim() && (
         <div className="suggest" style={sticky ? undefined : { top: 52, left: 0, right: 0 }}>
           {results.map((p) => (

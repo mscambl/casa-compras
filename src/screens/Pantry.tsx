@@ -39,11 +39,11 @@ export function PantryScreen() {
     })
   }, [inventory, pmap, filter, today])
 
-  const add = (picked: Product | string) => {
+  const add = (picked: Product | string, units = 1) => {
     const p = typeof picked === 'string' ? getOrCreateProduct(picked) : picked
     const cur = inventoryFor(p.id)
-    setStock(p, (cur?.qty ?? 0) + 1)
-    toast(`${p.name}: ${(cur?.qty ?? 0) + 1} en casa`)
+    setStock(p, (cur?.qty ?? 0) + units)
+    toast(`${p.name}: ${(cur?.qty ?? 0) + units} en casa`)
   }
 
   const filters: { id: Filter; label: string }[] = [
@@ -83,7 +83,7 @@ export function PantryScreen() {
                   <button className="li-btn" onClick={() => setEditing(p)}>
                     <div className="title ellipsis">{p.name}</div>
                     <div className="small row" style={{ gap: 6, flexWrap: 'wrap' }}>
-                      {d != null && <span className={`tag ${d < 0 ? 'danger' : d <= 3 ? 'danger' : d <= 7 ? 'warn' : ''}`}>{d < 0 ? 'Caducado' : d === 0 ? 'Caduca hoy' : `Caduca ${shortDate(r.expires_on!)}`}</span>}
+                      {d != null && <span className={`tag ${d < 0 ? 'danger' : d <= 3 ? 'danger' : d <= 7 ? 'warn' : ''}`}>{d < 0 ? 'Caducado' : d === 0 ? 'Caduca hoy' : `Caduca ${shortDate(r.expires_on!)}${(r.lots?.length ?? 0) > 1 ? ` · ${r.lots!.length} fechas` : ''}`}</span>}
                       {low && <span className="tag warn">{r.qty === 0 ? 'Agotado' : `Mín. ${p.min_qty}`}</span>}
                       {inList.has(p.id) && <span className="tag ok">En la lista</span>}
                     </div>

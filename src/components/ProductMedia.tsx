@@ -3,6 +3,7 @@ import { getState, useStore } from '../lib/store'
 import { updateProduct } from '../lib/actions'
 import { addPhoto, deletePhoto, mainImage, makeMain, usePhotoUrl } from '../lib/photos'
 import { lookupBarcode, NUTRIENT_LABEL } from '../lib/off'
+import { codesOf, findByCode, withCode, withoutCode } from '../lib/codes'
 import { shortDate } from '../lib/format'
 import type { NutrientKey, Product } from '../lib/types'
 import { Scanner } from './Scanner'
@@ -92,21 +93,27 @@ export function PackInfo({ product: p0 }: { product: Product }) {
   const product = useLive(p0)
   const [scan, setScan] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [pendingCode, setPendingCode] = useState<string | null>(null)
+  const [pendingUnits, setPendingUnits] = useState('1')
+  const packsReady = useStore((s) => s.packsReady)
   const info = product.info
+  const codes = codesOf(product)
 
-  const fetchInfo = async (code: string) => {
+  /** replace: el código pasa a ser el principal (sin la migración de packs solo hay uno). */
+  const fetchInfo = async (code: string, replace = false) => {
+    const barcode = replace ? code : (product.barcode ?? code)
     setBusy(true)
     try {
       const found = await lookupBarcode(code)
       if (found) {
-        updateProduct(product, { barcode: code, info: found.info })
+        updateProduct(product, { barcode, info: found.info })
         toast(`Datos actualizados desde ${found.info.db}`)
       } else {
-        updateProduct(product, { barcode: code })
+        updateProduct(product, { barcode })
         toast('Código guardado. Ninguna base de datos abierta conoce este producto: puedes hacer una foto de la etiqueta.')
       }
     } catch {
-      updateProduct(product, { barcode: code })
+      updateProduct(product, { barcode })
       toast('Código guardado. Sin conexión con las bases de datos: prueba «Actualizar datos» más tarde.', 'error')
     } finally {
       setBusy(false)
@@ -115,15 +122,62 @@ export function PackInfo({ product: p0 }: { product: Product }) {
 
   const onCode = (code: string) => {
     setScan(false)
-    const other = getState().products.find((p) => p.barcode === code && p.id !== product.id)
-    if (other) return toast(`Ese código ya es de «${other.name}»`, 'error')
-    void fetchInfo(code)
+    const owner = packsReady ? findByCode(getState().products, code)?.product : getState().products.find((p) => p.barcode === code)
+    if (owner && owner.id !== product.id) return toast(`Ese código ya es de «${owner.name}»`, 'error')
+    if (!packsReady) return void fetchInfo(code, true)
+    setPendingUnits('1')
+    setPendingCode(code)
+  }
+  const savePending = () => {
+    if (!pendingCode) return
+    const units = Math.max(1, Math.round(Number(pendingUnits.replace(',', '.'))) || 1)
+    const first = !product.barcode
+    updateProduct(product, withCode(product, pendingCode, units))
+    toast(units > 1 ? `Código de pack de ${units} guardado` : 'Código guardado')
+    if (first && !product.info) void fetchInfo(pendingCode)
+    setPendingCode(null)
+  }
+  const setUnits = (code: string, raw: string) => {
+    const units = Math.max(1, Math.round(Number(raw.replace(',', '.'))) || 1)
+    if (codes.find((c) => c.code === code)?.units !== units) updateProduct(product, withCode(product, code, units))
   }
 
   const nutrition = info?.nutrition ? (Object.keys(NUTRIENT_LABEL) as NutrientKey[]).filter((k) => info.nutrition![k] != null) : []
 
   return (
     <div className="stack">
+      {packsReady ? (
+        <>
+          {codes.length === 0 && <div className="row"><Icon name="barcode" /><span className="muted">Sin código de barras</span></div>}
+          {codes.map((c) => (
+            <div className="row" key={`${c.code}-${c.units}`} data-testid="code-row">
+              <Icon name="barcode" />
+              <span className="num grow">{c.code}</span>
+              <input className="input" style={{ width: 64 }} inputMode="numeric" defaultValue={c.units} aria-label={`Unidades del código ${c.code}`}
+                onBlur={(e) => setUnits(c.code, e.target.value)} />
+              <span className="small muted">ud</span>
+              <button className="icon-btn" aria-label={`Quitar código ${c.code}`} onClick={() => { updateProduct(product, withoutCode(product, c.code)); toast('Código quitado') }}><Icon name="x" /></button>
+            </div>
+          ))}
+          {info?.brand && <div className="small muted">{[info.brand, info.quantity].filter(Boolean).join(' · ')}</div>}
+          {pendingCode && (
+            <div className="card stack" data-testid="pending-code">
+              <div className="small">Código <b className="num">{pendingCode}</b>. ¿Cuántas unidades trae? (1 si es suelto; 6 si es un pack de 6)</div>
+              <div className="row">
+                <input className="input" inputMode="numeric" value={pendingUnits} onChange={(e) => setPendingUnits(e.target.value)} aria-label="Unidades del código nuevo" />
+                <button className="btn sm primary" onClick={savePending}>Guardar código</button>
+                <button className="btn sm" onClick={() => setPendingCode(null)}>Cancelar</button>
+              </div>
+            </div>
+          )}
+          <div className="row">
+            <button className="btn sm" onClick={() => setScan(true)}>{codes.length ? 'Añadir código' : 'Escanear código'}</button>
+            {product.barcode && <button className="btn sm" disabled={busy} onClick={() => void fetchInfo(product.barcode!)}>{busy ? 'Buscando…' : 'Actualizar datos'}</button>}
+          </div>
+          {codes.length > 1 && <p className="small muted" style={{ margin: 0 }}>Al escanear un código de pack se suman sus unidades. Todos comparten precio, fotos y caducidades.</p>}
+        </>
+      ) : (
+      <>
       <div className="row">
         <Icon name="barcode" />
         <div className="grow">
@@ -135,6 +189,8 @@ export function PackInfo({ product: p0 }: { product: Product }) {
         <button className="btn sm" onClick={() => setScan(true)}>{product.barcode ? 'Cambiar código' : 'Escanear código'}</button>
         {product.barcode && <button className="btn sm" disabled={busy} onClick={() => void fetchInfo(product.barcode!)}>{busy ? 'Buscando…' : 'Actualizar datos'}</button>}
       </div>
+      </>
+      )}
 
       {info && (
         <div className="card stack" data-testid="pack-info">

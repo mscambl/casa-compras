@@ -1,6 +1,7 @@
 import { getState, remove, update, upsert, uid } from './store'
 import type { InventoryRow, Location, Product, ShoppingItem, Unit } from './types'
 import { cap, guessCategoryName, norm } from './text'
+import { earliestLot, lotsAfterStock } from './codes'
 
 const hid = () => getState().household!.id
 const me = () => getState().userId
@@ -124,6 +125,11 @@ export function setStock(product: Product, qty: number, patch: Partial<Inventory
   const row = inventoryFor(product.id)
   const q = Math.max(0, Math.round(qty * 1000) / 1000)
   if (row) {
+    // Con lotes: al bajar se gasta primero lo que caduca antes, y la fecha visible es la más próxima.
+    if (row.lots?.length && !patch.lots) {
+      const lots = lotsAfterStock(row.lots, row.qty, q)
+      patch = { ...patch, lots, expires_on: earliestLot(lots) }
+    }
     update('inventory', row.id, { qty: q, updated_by: me(), ...patch })
   } else {
     upsert('inventory', {

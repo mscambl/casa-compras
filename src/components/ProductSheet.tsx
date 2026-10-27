@@ -7,6 +7,7 @@ import {
 import { LOCATIONS, type Location, type PriceObservation, type Product, type ShoppingItem, type Unit } from '../lib/types'
 import { ConfirmButton, Icon, Sheet, toast } from './ui'
 import { PackInfo, PhotoGallery } from './ProductMedia'
+import { LotsEditor } from './Lots'
 
 const SOURCE_LABEL: Record<string, string> = { ticket: 'Ticket', manual: 'Manual', estimado: 'Estimado', oferta: 'Oferta verificada' }
 
@@ -15,6 +16,7 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
   const stores = useStore((s) => s.stores)
   const inv = useStore(() => inventoryFor(product.id))
   const photosReady = useStore((s) => s.photosReady)
+  const packsReady = useStore((s) => s.packsReady)
   const pk = packInput(product.unit, product.pack_size)
 
   const [name, setName] = useState(product.name)
@@ -75,7 +77,10 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
       updateItem(item, { qty: q && q > 0 ? q : 1, est_price: parseNum(est), store_id: itemStore || null, note: note.trim() || null })
     }
     const st = parseNum(stock)
-    if (st != null || expires) {
+    if (packsReady) {
+      // Las fechas se guardan al momento en «Caducidades»; aquí solo cantidad y ubicación.
+      if (st != null && (st !== (inv?.qty ?? null) || (loc || null) !== (inv?.location ?? null))) setStock(product, st, { location: (loc || null) as Location | null })
+    } else if (st != null || expires) {
       if (st !== (inv?.qty ?? null) || (expires || null) !== (inv?.expires_on ?? null) || (loc || null) !== (inv?.location ?? null)) {
         setStock(product, st ?? inv?.qty ?? 0, { expires_on: expires || null, location: (loc || null) as Location | null })
       }
@@ -157,8 +162,9 @@ export function ProductSheet({ product, item, onClose }: { product: Product; ite
               {LOCATIONS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
             </select>
           </label>
-          <label className="field"><span>Caduca</span><input className="input" type="date" value={expires} onChange={(e) => setExpires(e.target.value)} /></label>
+          {!packsReady && <label className="field"><span>Caduca</span><input className="input" type="date" value={expires} onChange={(e) => setExpires(e.target.value)} /></label>}
         </div>
+        {packsReady && <LotsEditor product={product} onQty={(n) => setStockStr(String(n))} />}
         <label className="field"><span>Reponer cada (días)</span><input className="input" inputMode="numeric" value={restock} placeholder="Se calcula con el historial" onChange={(e) => setRestock(e.target.value)} /></label>
 
         <button className="btn primary block" onClick={save}>Guardar</button>
