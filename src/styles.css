@@ -229,3 +229,9 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: v
 .nutri-table td { padding: 6px 0; border-top: 1px solid var(--line); }
 .nutri-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 .nutri-table td.sub { padding-left: 14px; color: var(--muted); }
+
+/* Líneas de ticket con su tienda debajo */
+.list > .li.wrap { flex-wrap: wrap; }
+.li .line-store { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
+.li .line-store select { width: auto; flex: 1; max-width: 220px; }
+.input.sm { padding: 4px 8px; min-height: 32px; font-size: 14px; }

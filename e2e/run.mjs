@@ -232,13 +232,60 @@ await step('Eliminar compra descuenta de «En casa»', async () => {
   await mike.page.getByTestId('month-total').getByText('8,05').waitFor({ timeout: 8000 })
 })
 
+await step('Compra con productos de dos tiendas: se guarda una por tienda', async () => {
+  await mike.page.click('button:has-text("Compra")')
+  const search = mike.page.getByPlaceholder('Añadir producto al ticket')
+  await mike.page.getByLabel('Tienda', { exact: true }).selectOption({ label: 'Mercadona' })
+  for (const n of ['Lejía', 'Barra de pan']) { await search.fill(n); await search.press('Enter') }
+  await mike.page.getByLabel('Importe de Lejía').fill('0,95')
+  await mike.page.getByLabel('Importe de Barra de pan').fill('0,65')
+  await mike.page.getByLabel('Tienda de Barra de pan').selectOption({ label: 'La Despensa' })
+  await mike.page.getByText('se guardará una compra por tienda').waitFor()
+  await shot(mike.page, 'compra-dos-tiendas')
+  await mike.page.click('button:has-text("Guardar compra")')
+  await mike.page.getByText('Guardadas 2 compras').waitFor({ timeout: 8000 })
+  await mike.page.getByTestId('month-total').getByText('9,65').waitFor({ timeout: 8000 })
+  await mike.page.getByTestId('purchase').filter({ hasText: 'La Despensa' }).filter({ hasText: '0,65' }).waitFor()
+})
+
+await step('Editar compra cerrada: separar por tiendas y corregir una cantidad', async () => {
+  const leche = () => mike.page.evaluate(() => {
+    const s = window.__cc.getState()
+    const p = s.products.find((x) => x.name === 'Leche')
+    return s.inventory.find((i) => i.product_id === p.id)?.qty ?? 0
+  })
+  const before = await leche()
+  await mike.page.getByTestId('purchase').filter({ hasText: '8,05' }).click()
+  await mike.page.click('.sheet button:has-text("Editar o separar")')
+  const qty = mike.page.getByLabel('Cantidad de Leche')
+  const q = Number((await qty.inputValue()).replace(',', '.'))
+  await qty.fill(String(q + 1))
+  await mike.page.getByLabel('Importe de Leche').fill('2,85')
+  await mike.page.getByLabel('Tienda de Papel higiénico').selectOption({ label: 'La Despensa' })
+  await mike.page.getByText('Se separará en 2 compras').waitFor()
+  await shot(mike.page, 'editar-compra')
+  await mike.page.click('button:has-text("Guardar cambios")')
+  await mike.page.getByText('Compra separada en 2 tiendas').waitFor({ timeout: 8000 })
+  // 8,05 + 0,95 de la leche de más: Mercadona 4,50 (con los 0,50 sin desglosar) y La Despensa 4,50.
+  await mike.page.getByTestId('month-total').getByText('10,60').waitFor({ timeout: 8000 })
+  await mike.page.getByTestId('purchase').filter({ hasText: 'Mercadona' }).filter({ hasText: '4,50' }).waitFor()
+  await mike.page.getByTestId('purchase').filter({ hasText: 'La Despensa' }).filter({ hasText: '4,50' }).waitFor()
+  await mike.page.waitForFunction((b) => {
+    const s = window.__cc.getState()
+    const p = s.products.find((x) => x.name === 'Leche')
+    return s.inventory.find((i) => i.product_id === p.id)?.qty === b + 1
+  }, before, { timeout: 8000 })
+  const lp = await mike.page.evaluate(() => window.__cc.getState().products.find((x) => x.name === 'Leche').last_price)
+  assert(Math.abs(lp - 2.85 / (q + 1)) < 0.011, `último precio de la leche ${lp}`)
+})
+
 await step('Exportar CSV de compras', async () => {
   await mike.page.click('nav >> text=Más')
   await mike.page.click('text=Exportar datos')
   const [dl] = await Promise.all([mike.page.waitForEvent('download'), mike.page.click('text=Compras línea a línea (CSV)')])
   const fs = await import('node:fs')
   const csv = fs.readFileSync(await dl.path(), 'utf8')
-  assert(csv.includes('Leche') && csv.includes('Mercadona') && csv.includes('1.9'), 'CSV incompleto')
+  assert(csv.includes('Leche') && csv.includes('Mercadona') && csv.includes('2.85'), 'CSV incompleto')
   await mike.page.keyboard.press('Escape')
 })
 
@@ -485,6 +532,9 @@ await step('Una persona ajena no ve ni puede escribir datos', async () => {
   assert(ins.error, 'pudo insertar en otro hogar')
   const rpc = await c.rpc('close_purchase', { p_household: hh, p_store: null, p_date: null, p_total: 1, p_paid_by: null, p_unplanned: false, p_lines: [] })
   assert(rpc.error, 'pudo cerrar compra en otro hogar')
+  const pid = await mike.page.evaluate(() => window.__cc.getState().purchases[0].id)
+  const ed = await c.rpc('edit_purchase', { p_purchase: pid, p_parts: [{ id: pid, total_paid: 0, lines: [] }] })
+  assert(ed.error, 'pudo editar una compra de otro hogar')
   const anon = createClient(API, ANON)
   const a = await anon.from('purchases').select('*')
   assert(!a.data?.length, 'anónimo ve compras')

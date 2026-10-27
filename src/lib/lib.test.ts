@@ -226,3 +226,19 @@ describe('packs y lotes', () => {
     expect(lotsAfterStock(lots, 12, 0)).toEqual([])
   })
 })
+
+describe('compras por tienda', () => {
+  it('agrupa por tienda en orden de aparición', async () => {
+    const { groupByStore } = await import('./purchases')
+    const g = groupByStore([{ store: 'm', n: 1 }, { store: 'd', n: 2 }, { store: 'm', n: 3 }])
+    expect(g.map((x) => [x.store, x.lines.map((l) => l.n)])).toEqual([['m', [1, 3]], ['d', [2]]])
+    expect(groupByStore([], 'm')).toEqual([{ store: 'm', lines: [] }])
+  })
+  it('la parte original conserva la diferencia del ticket', async () => {
+    const { suggestedTotal } = await import('./purchases')
+    // Ticket 8,05 con líneas 7,55: se van 4,50 a otra tienda.
+    expect(suggestedTotal(true, 3.05, { total: 8.05, lines: 7.55 })).toBe(3.55)
+    expect(suggestedTotal(false, 4.5, { total: 8.05, lines: 7.55 })).toBe(4.5)
+    expect(suggestedTotal(true, 0, { total: 5, lines: 6 })).toBe(0)
+  })
+})

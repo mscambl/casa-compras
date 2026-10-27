@@ -5,6 +5,7 @@ import { addMonths, money, monthKey, monthLabel, parseNum, pctChange, pctFmt, sh
 import { budgetFor, forecast, metrics, monthSpend, topProducts } from '../lib/stats'
 import { GROUPS, type BudgetGroup } from '../lib/types'
 import { PurchaseSheet } from '../components/PurchaseSheet'
+import { PurchaseEdit } from '../components/PurchaseEdit'
 import { ConfirmButton, Icon, Sheet, memberName, toast } from '../components/ui'
 
 export function SpendingScreen() {
@@ -194,6 +195,8 @@ function BudgetSheet({ month, onClose }: { month: string; onClose: () => void })
 function PurchaseDetail({ p, onClose }: { p: PurchaseWithLines; onClose: () => void }) {
   const stores = useStore((s) => s.stores)
   const members = useStore((s) => s.members)
+  const [editing, setEditing] = useState(false)
+  if (editing) return <PurchaseEdit p={p} onClose={() => setEditing(false)} onDone={onClose} />
   return (
     <Sheet title={`${stores.find((s) => s.id === p.store_id)?.name ?? 'Compra'} · ${shortDate(p.purchased_on)}`} onClose={onClose}>
       <div className="stack">
@@ -205,6 +208,7 @@ function PurchaseDetail({ p, onClose }: { p: PurchaseWithLines; onClose: () => v
             ))}
           </div>
         )}
+        <button className="btn block" onClick={() => setEditing(true)}>Editar o separar por tiendas</button>
         <ConfirmButton onConfirm={async () => {
           try {
             await rpcNow('delete_purchase', { p_purchase: p.id })
