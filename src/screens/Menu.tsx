@@ -9,11 +9,11 @@ import {
 import { ingredientLabel, parseIngredient, seedRecipes } from '../lib/recipes'
 import { lightPack } from '../lib/lightRecipes'
 import { norm, rank } from '../lib/text'
-import type { Equipment, Ingredient, MealSlot, PlanEntry, Prefs, Recipe } from '../lib/types'
+import { EQUIPMENT, type Equipment, type Ingredient, type MealSlot, type PlanEntry, type Prefs, type Recipe } from '../lib/types'
 import { ConfirmButton, Icon, Sheet, toast } from '../components/ui'
 
 const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-const EQUIP_LABEL: Record<Equipment, string> = { ninguno: 'Sin cocinar', microondas: 'Microondas', fuego: 'Fuego', horno: 'Horno' }
+const EQUIP_LABEL: Record<Equipment, string> = { ninguno: 'Sin cocinar', microondas: 'Microondas', fuego: 'Fuego', horno: 'Horno', airfryer: 'Airfryer', vaporera: 'Vaporera' }
 
 /** Ids fijos por hogar: si los dos abren la app a la vez, el recetario no se duplica. */
 const seedId = (hid: string, i: number) => `${hid.slice(0, 24)}${(i + 1).toString(16).padStart(12, '0')}`
@@ -433,6 +433,7 @@ function PrefsSheet({ onClose }: { onClose: () => void }) {
       excluded: excluded.split(',').map((x) => x.trim()).filter(Boolean),
       maxPrep: Math.max(5, Math.min(240, Number(maxPrep) || 30)),
       equipment,
+      equipmentKnown: EQUIPMENT,
       weekendLunch,
       lunchServings: lunchTwo ? 2 : 1,
       dinnerServings: 2,
@@ -450,7 +451,7 @@ function PrefsSheet({ onClose }: { onClose: () => void }) {
         <label className="field"><span>Tiempo máximo de preparación (min)</span><input className="input" inputMode="numeric" value={maxPrep} onChange={(e) => setMaxPrep(e.target.value)} /></label>
         <div className="field"><span>Qué podemos usar</span>
           <div className="chips">
-            {(['microondas', 'fuego', 'horno'] as Equipment[]).map((e) => (
+            {EQUIPMENT.map((e) => (
               <button key={e} className="chip" aria-pressed={equipment.includes(e)} onClick={() => toggleEq(e)}>{EQUIP_LABEL[e]}</button>
             ))}
           </div>

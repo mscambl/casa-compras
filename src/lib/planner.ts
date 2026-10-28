@@ -1,10 +1,16 @@
 import { norm } from './text'
 import { addDaysISO, daysBetween } from './format'
 import {
-  DEFAULT_PREFS, type Ingredient, type InventoryRow, type MealSlot, type PlanEntry, type Prefs, type Product, type Recipe, type ShoppingItem,
+  DEFAULT_PREFS, EQUIPMENT, type Ingredient, type InventoryRow, type MealSlot, type PlanEntry, type Prefs, type Product, type Recipe, type ShoppingItem,
 } from './types'
 
-export const prefsOf = (p?: Prefs): Required<Prefs> => ({ ...DEFAULT_PREFS, ...(p ?? {}) })
+export const prefsOf = (p?: Prefs): Required<Prefs> => {
+  const out = { ...DEFAULT_PREFS, ...(p ?? {}) }
+  // Un método nuevo (airfryer, vaporera…) cuenta como disponible hasta que se desmarque.
+  const known = p?.equipmentKnown ?? ['microondas', 'fuego', 'horno']
+  const added = EQUIPMENT.filter((e) => !known.includes(e) && !out.equipment.includes(e))
+  return added.length ? { ...out, equipment: [...out.equipment, ...added] } : out
+}
 
 /** Lunes de la semana de una fecha. */
 export function mondayOf(iso: string): string {

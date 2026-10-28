@@ -276,6 +276,8 @@ function handleOpError(op: Op, error: { message: string; code?: string }) {
     notify('Ese producto ya estaba en la lista: lo ha añadido la otra persona.', 'info')
   } else if (error.code === '23505' && op.kind === 'upsert' && op.table === 'products') {
     notify('Ya existe un producto con ese nombre.', 'info')
+  } else if (error.code === '23514' && op.kind !== 'rpc' && op.table === 'recipes') {
+    notify('Falta un paso en la base de datos para ese método de cocina: ejecuta airfryer-vaporera.sql en Supabase.', 'error')
   } else if (error.code === '23503') {
     notify('No se pudo guardar: el producto ya no existe.', 'error')
   } else {

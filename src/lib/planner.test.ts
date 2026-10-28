@@ -157,3 +157,14 @@ describe('cantidades para varias personas', () => {
     expect(two.find((n) => n.name === 'Patatas')!.need).toBeCloseTo(0.6)
   })
 })
+
+describe('métodos de cocina nuevos', () => {
+  it('airfryer y vaporera cuentan como disponibles en preferencias antiguas', () => {
+    const old = prefsOf({ equipment: ['ninguno', 'microondas', 'fuego'] })
+    expect(old.equipment).toEqual(['ninguno', 'microondas', 'fuego', 'airfryer', 'vaporera'])
+  })
+  it('si se desmarcan, se respeta', () => {
+    const p = prefsOf({ equipment: ['ninguno', 'fuego'], equipmentKnown: ['microondas', 'fuego', 'horno', 'airfryer', 'vaporera'] })
+    expect(p.equipment).toEqual(['ninguno', 'fuego'])
+  })
+})

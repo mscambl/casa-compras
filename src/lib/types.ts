@@ -152,7 +152,9 @@ export interface AppEvent {
 }
 
 export type MealSlot = 'comida' | 'cena'
-export type Equipment = 'ninguno' | 'microondas' | 'fuego' | 'horno'
+export type Equipment = 'ninguno' | 'microondas' | 'fuego' | 'horno' | 'airfryer' | 'vaporera'
+/** Los que se pueden elegir en preferencias y recetas, en orden. */
+export const EQUIPMENT: Equipment[] = ['microondas', 'fuego', 'horno', 'airfryer', 'vaporera']
 
 export interface Ingredient { name: string; amount: number; unit: 'g' | 'kg' | 'ml' | 'l' | 'ud'; basic: boolean }
 
@@ -187,6 +189,8 @@ export interface Prefs {
   excluded?: string[]
   maxPrep?: number
   equipment?: Equipment[]
+  /** Métodos que ya se han visto en preferencias: los que no estén se dan por disponibles. */
+  equipmentKnown?: Equipment[]
   /** Raciones por defecto de la comida entre semana (Mike = 1). */
   lunchServings?: number
   dinnerServings?: number
@@ -198,7 +202,8 @@ export interface Prefs {
 export const DEFAULT_PREFS: Required<Prefs> = {
   excluded: [],
   maxPrep: 30,
-  equipment: ['ninguno', 'microondas', 'fuego', 'horno'],
+  equipment: ['ninguno', 'microondas', 'fuego', 'horno', 'airfryer', 'vaporera'],
+  equipmentKnown: ['microondas', 'fuego', 'horno', 'airfryer', 'vaporera'],
   lunchServings: 1,
   dinnerServings: 2,
   weekendLunch: false,
